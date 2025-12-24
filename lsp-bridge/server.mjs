@@ -5,7 +5,21 @@ import { randomUUID } from 'node:crypto'
 import { StreamMessageReader, StreamMessageWriter, createMessageConnection } from 'vscode-jsonrpc/node'
 
 const app = express()
-app.use(cors())
+const allowedOrigins = getEnv('ALLOWED_ORIGINS', '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean)
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+        callback(null, true)
+        return
+      }
+      callback(new Error('Origin not allowed'))
+    },
+  }),
+)
 app.use(express.json({ limit: '5mb' }))
 
 const sessions = new Map()
@@ -60,16 +74,30 @@ const ensureSession = async (req, res) => {
   return created
 }
 
+const requireAuth = (req, res, next) => {
+  const required = getEnv('LEAN_BRIDGE_TOKEN', '')
+  if (!required) {
+    next()
+    return
+  }
+  const token = req.get('x-lean-bridge-token')
+  if (token !== required) {
+    res.status(401).json({ error: 'Unauthorized' })
+    return
+  }
+  next()
+}
+
 app.get('/health', (req, res) => {
   res.json({ ok: true })
 })
 
-app.post('/session', async (req, res) => {
+app.post('/session', requireAuth, async (req, res) => {
   const session = await createSession()
   res.json({ sessionId: session.id })
 })
 
-app.post('/session/open', async (req, res) => {
+app.post('/session/open', requireAuth, async (req, res) => {
   const session = await ensureSession(req, res)
   const { uri, text } = req.body ?? {}
   if (!uri || typeof text !== 'string') {
@@ -89,7 +117,7 @@ app.post('/session/open', async (req, res) => {
   res.json({ sessionId: session.id, ok: true })
 })
 
-app.post('/session/change', async (req, res) => {
+app.post('/session/change', requireAuth, async (req, res) => {
   const session = await ensureSession(req, res)
   const { uri, text } = req.body ?? {}
   if (!uri || typeof text !== 'string') {
@@ -107,7 +135,7 @@ app.post('/session/change', async (req, res) => {
   res.json({ sessionId: session.id, ok: true })
 })
 
-app.post('/session/request', async (req, res) => {
+app.post('/session/request', requireAuth, async (req, res) => {
   const session = await ensureSession(req, res)
   const { method, params } = req.body ?? {}
   if (!method) {
@@ -122,7 +150,7 @@ app.post('/session/request', async (req, res) => {
   }
 })
 
-app.post('/session/notify', async (req, res) => {
+app.post('/session/notify', requireAuth, async (req, res) => {
   const session = await ensureSession(req, res)
   const { method, params } = req.body ?? {}
   if (!method) {
@@ -133,7 +161,7 @@ app.post('/session/notify', async (req, res) => {
   res.json({ sessionId: session.id, ok: true })
 })
 
-app.post('/session/goals', async (req, res) => {
+app.post('/session/goals', requireAuth, async (req, res) => {
   const session = await ensureSession(req, res)
   const { uri, position } = req.body ?? {}
   if (!uri || !position) {
@@ -152,7 +180,7 @@ app.post('/session/goals', async (req, res) => {
   }
 })
 
-app.post('/session/close', async (req, res) => {
+app.post('/session/close', requireAuth, async (req, res) => {
   const { sessionId } = req.body ?? {}
   const session = sessionId ? getSession(sessionId) : null
   if (!session) {
@@ -169,6 +197,7 @@ app.post('/session/close', async (req, res) => {
 })
 
 const port = Number(getEnv('PORT', '8787'))
-app.listen(port, () => {
-  console.log(`Lean LSP bridge listening on :${port}`)
+const host = getEnv('HOST', '0.0.0.0')
+app.listen(port, host, () => {
+  console.log(`Lean LSP bridge listening on ${host}:${port}`)
 })

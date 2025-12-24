@@ -57,11 +57,14 @@ After=network.target
 Type=simple
 WorkingDirectory=${BRIDGE_DIR}
 Environment=PORT=8787
+Environment=HOST=${HOST}
 Environment=LEAN_PROJECT_ROOT=${LEAN_PROJECT_ROOT}
 Environment=LEAN_PROJECT_URI=file://${LEAN_PROJECT_ROOT}
 Environment=LEAN_SERVER_CMD=/root/.elan/bin/lean
 Environment=LEAN_SERVER_ARGS=--server
 Environment=LEAN_GOALS_METHOD=\$/lean/plainGoal
+Environment=LEAN_BRIDGE_TOKEN=${LEAN_BRIDGE_TOKEN}
+Environment=ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
 ExecStart=/usr/bin/node ${BRIDGE_DIR}/server.mjs
 Restart=always
 RestartSec=2
@@ -75,3 +78,6 @@ systemctl enable --now lean-lsp-bridge
 
 echo "==> Done. Service status:"
 systemctl --no-pager status lean-lsp-bridge || true
+HOST="${HOST:-127.0.0.1}"
+LEAN_BRIDGE_TOKEN="${LEAN_BRIDGE_TOKEN:-}"
+ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-}"
