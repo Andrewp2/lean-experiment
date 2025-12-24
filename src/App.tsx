@@ -1,97 +1,65 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import './App.css'
 import { leanSamples } from './assets/samples'
 
-const tacticNotes = [
-  { label: 'intro', pattern: /\bintro\b|\bintros\b/, text: 'Introduces variables or hypotheses into the goal.' },
-  { label: 'induction', pattern: /\binduction\b/, text: 'Splits the proof into base and inductive cases.' },
-  { label: 'cases', pattern: /\bcases\b/, text: 'Performs case analysis on a data type.' },
-  { label: 'simp', pattern: /\bsimp\b/, text: 'Simplifies the goal using rewrite rules.' },
-  { label: 'rw', pattern: /\brw\b/, text: 'Rewrites the goal with a known equality.' },
-  { label: 'exact', pattern: /\bexact\b/, text: 'Closes the goal with an exact proof term.' },
-  { label: 'decide', pattern: /\bdecide\b/, text: 'Discharges the goal via decision procedure.' },
-]
-
-function buildExplanation(input: string) {
-  const trimmed = input.trim()
-  if (!trimmed) {
-    return ['Paste a Lean proof or tactic script to get a walkthrough.']
-  }
-
-  const lines = trimmed.split('\n').filter((line) => line.trim().length > 0)
-  const tacticHits = tacticNotes.filter((note) => note.pattern.test(trimmed))
-  const headerMatch = trimmed.match(/\b(lemma|theorem)\s+([^\s:]+)/)
-  const header =
-    headerMatch && headerMatch[2]
-      ? `You are proving "${headerMatch[2]}" using ${lines.length} line(s).`
-      : `You are proving a statement using ${lines.length} line(s).`
-
-  const usesBy = /\bby\b/.test(trimmed)
-  const usesTermMode = /:=\s*by/.test(trimmed)
-  const mode = usesBy
-    ? `Lean is in ${usesTermMode ? 'term' : 'tactic'} mode with a scripted proof block.`
-    : ''
-  const structure =
-    lines.length > 1
-      ? `The proof is structured into ${lines.length} step(s); each line refines the goal or splits cases.`
-      : 'The proof is a single step that closes the goal directly.'
-
-  const tacticSummary =
-    tacticHits.length > 0
-      ? `Key tactics spotted: ${tacticHits.map((note) => note.label).join(', ')}.`
-      : 'No common tactics were detected; check the script for custom lemmas or terms.'
-
-  const details =
-    tacticHits.length > 0
-      ? tacticHits.map((note) => `- ${note.text}`)
-      : ['- Add a tactic like `simp` or `rw` to see a more detailed breakdown.']
-
-  return [header, mode, structure, tacticSummary, ...details].filter((line) => line.length > 0)
-}
-
 function App() {
   const [input, setInput] = useState(leanSamples[0]?.value ?? '')
+  const [activeImports, setActiveImports] = useState<string[]>(leanSamples[0]?.imports ?? [])
   const [output, setOutput] = useState<string[]>([])
 
-  const preview = useMemo(() => buildExplanation(input), [input])
+  const idleLines = [
+    'LLM output will appear here.',
+    'Connect the server endpoint to enable explanations.',
+  ]
 
   return (
-    <div className="page">
-      <header className="hero">
-        <div className="hero-text">
-          <p className="eyebrow">Lean Proof Interpreter</p>
-          <h1>Paste a Lean proof. Get a human walkthrough.</h1>
-          <p className="lead">
-            Drop in a tactic script, then let an AI explain the proof line by line in the context of your goal.
-          </p>
+    <div className="page theme-highk">
+      <header className="site-header">
+        <div className="wordmark">
+          <span className="wordmark-title">LEAN LAB</span>
+          <span className="wordmark-sub">PROOF WALKTHROUGH SYSTEM</span>
         </div>
-        <div className="hero-card">
-          <p className="hero-card-title">What it does</p>
-          <ul>
-            <li>Highlights proof structure and key tactics.</li>
-            <li>Connects each step to the evolving goal.</li>
-            <li>Summarizes the core idea in plain language.</li>
-          </ul>
-        </div>
+        <nav className="site-nav">
+          <a href="#">Work</a>
+          <a href="#">Spec</a>
+          <a href="#">Tools</a>
+          <a href="#">Contact</a>
+        </nav>
       </header>
+
+      <section className="meta-grid">
+        <div>
+          <p className="meta-label">REV</p>
+          <p className="meta-value">B</p>
+        </div>
+        <div>
+          <p className="meta-label">DATE</p>
+          <p className="meta-value">2025-12-24</p>
+        </div>
+        <div>
+          <p className="meta-label">PN</p>
+          <p className="meta-value">001-LEAN</p>
+        </div>
+        <div>
+          <p className="meta-label">STATUS</p>
+          <p className="meta-value ok">ONLINE</p>
+        </div>
+      </section>
+
+      <section className="intro">
+        <h1>TR-001 · Proof Walkthrough Generator</h1>
+        <p>
+          Paste a Lean proof or tactic script. The system sends the proof plus its imports to a server
+          LLM and returns a walkthrough.
+        </p>
+      </section>
 
       <main className="workspace">
         <section className="panel">
           <div className="panel-header">
             <div>
-              <h2>Lean input</h2>
+              <h2>Section A · Lean input</h2>
               <p>Paste a theorem, lemma, or tactic block.</p>
-            </div>
-            <div className="sample-buttons">
-              {leanSamples.map((sample) => (
-                <button
-                  key={sample.label}
-                  className="ghost-button"
-                  onClick={() => setInput(sample.value)}
-                >
-                  {sample.label}
-                </button>
-              ))}
             </div>
           </div>
           <textarea
@@ -101,53 +69,82 @@ function App() {
             onChange={(event) => setInput(event.target.value)}
           />
           <div className="panel-actions">
-            <button className="primary-button" onClick={() => setOutput(preview)}>
-              Explain proof
+            <button
+              className="primary-button"
+              onClick={() => setOutput(['LLM request queued. Connect API to return results.'])}
+            >
+              Request LLM
             </button>
             <button className="ghost-button" onClick={() => setOutput([])}>
               Clear explanation
             </button>
           </div>
+          {activeImports.length > 0 ? (
+            <div className="callout note">
+              <span className="callout-label">NOTE</span>
+              <div>
+                <p>Imports available to the LLM:</p>
+                <ul>
+                  {activeImports.map((entry) => (
+                    <li key={entry}>{entry}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ) : null}
         </section>
 
-        <section className="panel panel-contrast">
+        <section className="panel">
           <div className="panel-header">
             <div>
-              <h2>Explanation</h2>
-              <p>Generated commentary stays aligned with the proof context.</p>
+              <h2>Section B · LLM response</h2>
+              <p>Server-generated commentary aligned with the proof context.</p>
             </div>
-            <span className="status-pill">{output.length > 0 ? 'Ready' : 'Awaiting input'}</span>
+            <span className="status-chip">{output.length > 0 ? 'PENDING' : 'IDLE'}</span>
           </div>
           <div className="explain-output">
-            {(output.length > 0 ? output : preview).map((line, index) => (
+            {(output.length > 0 ? output : idleLines).map((line, index) => (
               <p key={`${line}-${index}`}>{line}</p>
             ))}
           </div>
           <div className="panel-footer">
             <div>
-              <p className="footer-title">Next idea</p>
-              <p>Wire this to a Lean-aware LLM for contextual goal tracking.</p>
+              <p className="meta-label">NEXT</p>
+              <p className="meta-value">Wire the server endpoint to fetch explanations.</p>
             </div>
-            <button className="link-button">Connect API</button>
+            <button className="ghost-button">Connect API</button>
           </div>
         </section>
       </main>
 
-      <section className="steps">
-        <div className="step">
-          <span className="step-number">01</span>
-          <h3>Paste your proof</h3>
-          <p>Bring a Lean lemma, theorem, or tactic block straight from your editor.</p>
+      <section className="samples">
+        <div className="panel-header">
+          <div>
+            <h2>Section C · Sample proofs</h2>
+            <p>Select a stored proof block from the registry.</p>
+          </div>
         </div>
-        <div className="step">
-          <span className="step-number">02</span>
-          <h3>Generate the story</h3>
-          <p>We translate tactics into plain language and keep the goal in view.</p>
-        </div>
-        <div className="step">
-          <span className="step-number">03</span>
-          <h3>Teach back</h3>
-          <p>Use the explanation to annotate proofs or onboard teammates faster.</p>
+        <div className="table">
+          <div className="table-row table-head">
+            <span>LABEL</span>
+            <span>IMPORTS</span>
+            <span className="table-action">LOAD</span>
+          </div>
+          {leanSamples.map((sample) => (
+            <div className="table-row" key={sample.label}>
+              <span>{sample.label}</span>
+              <span>{sample.imports?.join(', ') ?? 'NONE'}</span>
+              <button
+                className="ghost-button"
+                onClick={() => {
+                  setInput(sample.value)
+                  setActiveImports(sample.imports ?? [])
+                }}
+              >
+                Load
+              </button>
+            </div>
+          ))}
         </div>
       </section>
     </div>
