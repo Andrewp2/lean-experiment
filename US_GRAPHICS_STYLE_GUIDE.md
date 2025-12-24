@@ -130,9 +130,8 @@ Tables are first-class UI.
 - Avoid stock photography unless it is documentary and neutral
 
 ## Motion
-- Minimal animation
-- Use motion only for state changes (expand, collapse, toast)
-- Keep durations short and easing subtle
+- Prefer no animation to minimal animation
+- Prefer minimal animation to maximal animation
 
 ## Content voice and labeling
 - Write like documentation and reports

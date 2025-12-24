@@ -7,10 +7,7 @@ function App() {
   const [activeImports, setActiveImports] = useState<string[]>(leanSamples[0]?.imports ?? [])
   const [output, setOutput] = useState<string[]>([])
 
-  const idleLines = [
-    'LLM output will appear here.',
-    'Connect the server endpoint to enable explanations.',
-  ]
+  const idleLines = ['LLM output will appear here.']
 
   return (
     <div className="page theme-highk">
@@ -26,25 +23,6 @@ function App() {
           <a href="#">Contact</a>
         </nav>
       </header>
-
-      <section className="meta-grid">
-        <div>
-          <p className="meta-label">REV</p>
-          <p className="meta-value">B</p>
-        </div>
-        <div>
-          <p className="meta-label">DATE</p>
-          <p className="meta-value">2025-12-24</p>
-        </div>
-        <div>
-          <p className="meta-label">PN</p>
-          <p className="meta-value">001-LEAN</p>
-        </div>
-        <div>
-          <p className="meta-label">STATUS</p>
-          <p className="meta-value ok">ONLINE</p>
-        </div>
-      </section>
 
       <section className="intro">
         <h1>TR-001 · Proof Walkthrough Generator</h1>
@@ -73,10 +51,7 @@ function App() {
               className="primary-button"
               onClick={() => setOutput(['LLM request queued. Connect API to return results.'])}
             >
-              Request LLM
-            </button>
-            <button className="ghost-button" onClick={() => setOutput([])}>
-              Clear explanation
+              Request LLM Explanation
             </button>
           </div>
           {activeImports.length > 0 ? (
@@ -104,15 +79,19 @@ function App() {
           </div>
           <div className="explain-output">
             {(output.length > 0 ? output : idleLines).map((line, index) => (
-              <p key={`${line}-${index}`}>{line}</p>
+              <p key={`${line}-${index}`} className={output.length > 0 ? undefined : 'placeholder'}>
+                {line}
+              </p>
             ))}
           </div>
           <div className="panel-footer">
             <div>
               <p className="meta-label">NEXT</p>
-              <p className="meta-value">Wire the server endpoint to fetch explanations.</p>
+              <p className="meta-value">LLM walkthroughs return here after processing.</p>
             </div>
-            <button className="ghost-button">Connect API</button>
+            <button className="ghost-button" onClick={() => setOutput([])}>
+              Clear explanation
+            </button>
           </div>
         </section>
       </main>

@@ -147,7 +147,7 @@
 }
 
 .primary-button {
-  border-color: var(--fl-yellow);
+  border: 1px solid var(--border-strong);
 }
 
 .primary-button:hover,
@@ -169,6 +169,10 @@
   display: grid;
   gap: 10px;
   min-height: 220px;
+}
+
+.explain-output .placeholder {
+  color: var(--muted);
 }
 
 .panel-footer {
