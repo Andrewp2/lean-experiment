@@ -15,8 +15,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const path = Array.isArray(req.query.path) ? req.query.path.join('/') : ''
-  const url = `${baseUrl.replace(/\/$/, '')}/${path}`
+  const queryPath = Array.isArray(req.query.path) ? req.query.path.join('/') : req.query.path
+  const urlPath =
+    typeof queryPath === 'string' && queryPath.length > 0
+      ? queryPath
+      : req.url?.replace(/^\/api\/lean\/?/, '').split('?')[0] ?? ''
+  const url = `${baseUrl.replace(/\/$/, '')}/${urlPath}`
 
   try {
     const upstream = await fetch(url, {
