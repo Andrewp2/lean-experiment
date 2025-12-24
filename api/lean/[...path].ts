@@ -1,0 +1,38 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node'
+
+const getEnv = (name: string) => process.env[name] ?? ''
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const baseUrl = getEnv('LEAN_BRIDGE_URL')
+  const token = getEnv('LEAN_BRIDGE_TOKEN')
+
+  if (!baseUrl) {
+    res.status(500).json({ error: 'LEAN_BRIDGE_URL is not set.' })
+    return
+  }
+  if (!token) {
+    res.status(500).json({ error: 'LEAN_BRIDGE_TOKEN is not set.' })
+    return
+  }
+
+  const path = Array.isArray(req.query.path) ? req.query.path.join('/') : ''
+  const url = `${baseUrl.replace(/\/$/, '')}/${path}`
+
+  try {
+    const upstream = await fetch(url, {
+      method: req.method,
+      headers: {
+        'x-lean-bridge-token': token,
+        'Content-Type': req.headers['content-type'] ?? 'application/json',
+      },
+      body: req.method === 'GET' || req.method === 'HEAD' ? undefined : JSON.stringify(req.body),
+    })
+
+    const contentType = upstream.headers.get('content-type') ?? 'application/json'
+    res.status(upstream.status)
+    res.setHeader('Content-Type', contentType)
+    res.send(await upstream.text())
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Proxy failed.' })
+  }
+}
