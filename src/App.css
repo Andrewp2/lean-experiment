@@ -94,7 +94,7 @@
 
 .intro h1 {
   margin: 0 0 12px;
-  font-size: 2rem;
+  font-size: 1.2rem;
   letter-spacing: -0.02em;
 }
 
@@ -218,6 +218,10 @@
   color: var(--muted);
 }
 
+.placeholder {
+  color: var(--muted);
+}
+
 .panel-footer {
   display: flex;
   align-items: center;
@@ -300,6 +304,56 @@
   line-height: 1.4;
 }
 
+.visualizer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.tactic-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.goal-flow {
+  display: grid;
+  gap: 10px;
+}
+
+.goal-card {
+  border: 1px solid var(--border);
+  padding: 10px;
+}
+
+.goal-card pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.goal-arrow {
+  text-align: center;
+  color: var(--muted);
+}
+
+.dependency-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dependency-node {
+  border: 1px solid var(--border);
+  padding: 10px;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
 .theme-reticle .table-head {
   background: #0a0a0a;
 }
@@ -353,6 +407,11 @@
 }
 
 .theme-reticle .samples .panel-header {
+  border-color: #333333;
+}
+
+.theme-reticle .goal-card,
+.theme-reticle .dependency-node {
   border-color: #333333;
 }
 

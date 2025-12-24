@@ -1,30 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import './App.css'
 import { leanSamples } from './assets/samples'
-import { tactics } from './assets/tactics'
 import { importRegistry } from './assets/imports'
+import { SiteHeader } from './components/SiteHeader'
+import { useThemeMode } from './hooks/useThemeMode'
 
 function App() {
   const [input, setInput] = useState(leanSamples[0]?.value ?? '')
   const [activeImports, setActiveImports] = useState<string[]>(leanSamples[0]?.imports ?? [])
   const [output, setOutput] = useState<string[]>([])
-  const [mode, setMode] = useState<'light' | 'dark' | 'system'>(() => {
-    if (typeof window === 'undefined') {
-      return 'system'
-    }
-    const stored = window.localStorage.getItem('theme')
-    if (stored === 'dark' || stored === 'light' || stored === 'system') {
-      return stored
-    }
-    return 'system'
-  })
-  const [theme, setTheme] = useState<'highk' | 'reticle'>(() => {
-    if (typeof window === 'undefined') {
-      return 'highk'
-    }
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    return prefersDark ? 'reticle' : 'highk'
-  })
+  const { mode, setMode, theme } = useThemeMode()
   const [status, setStatus] = useState<'idle' | 'pending' | 'ready' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -92,68 +77,9 @@ function App() {
     }
   }
 
-  useEffect(() => {
-    document.documentElement.classList.toggle('theme-reticle', theme === 'reticle')
-    document.documentElement.classList.toggle('theme-highk', theme === 'highk')
-  }, [theme])
-
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (event: MediaQueryListEvent) => {
-      if (mode === 'system') {
-        setTheme(event.matches ? 'reticle' : 'highk')
-      }
-    }
-    media.addEventListener('change', handleChange)
-    return () => {
-      media.removeEventListener('change', handleChange)
-    }
-  }, [mode])
-
-  useEffect(() => {
-    if (mode === 'system') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      setTheme(prefersDark ? 'reticle' : 'highk')
-    } else {
-      setTheme(mode === 'dark' ? 'reticle' : 'highk')
-    }
-    window.localStorage.setItem('theme', mode)
-  }, [mode])
-
   return (
     <div className={`page theme-${theme}`}>
-      <header className="site-header">
-        <div className="wordmark">
-          <span className="wordmark-title">LEAN LAB</span>
-          <span className="wordmark-sub">PROOF WALKTHROUGH SYSTEM</span>
-        </div>
-        {/* <nav className="site-nav">
-          <a href="#">Work</a>
-          <a href="#">Spec</a>
-          <a href="#">Tools</a>
-          <a href="#">Contact</a>
-        </nav> */}
-        <div className="theme-toggle">
-          <button
-            className={`ghost-button ${mode === 'light' ? 'active' : ''}`}
-            onClick={() => setMode('light')}
-          >
-            LIGHT
-          </button>
-          <button
-            className={`ghost-button ${mode === 'system' ? 'active' : ''}`}
-            onClick={() => setMode('system')}
-          >
-            SYSTEM
-          </button>
-          <button
-            className={`ghost-button ${mode === 'dark' ? 'active' : ''}`}
-            onClick={() => setMode('dark')}
-          >
-            DARK
-          </button>
-        </div>
-      </header>
+      <SiteHeader mode={mode} onModeChange={setMode} />
 
       <section className="intro">
         <h1>TR-001 · Proof Walkthrough Generator</h1>
@@ -163,7 +89,7 @@ function App() {
         </p>
       </section>
 
-      <main className="workspace">
+      <main className="workspace" id="walkthroughs">
         <section className="panel">
           <div className="panel-header">
             <div>
@@ -270,28 +196,6 @@ function App() {
         </div>
       </section>
 
-      <section className="samples">
-        <div className="panel-header">
-          <div>
-            <h2>Section D · Tactic reference</h2>
-            <p>Common tactics with short explanations and minimal examples.</p>
-          </div>
-        </div>
-        <div className="table table-tactics">
-          <div className="table-row table-head">
-            <span>TACTIC</span>
-            <span>SUMMARY</span>
-            <span>EXAMPLE</span>
-          </div>
-          {tactics.map((tactic) => (
-            <div className="table-row" key={tactic.name}>
-              <span>{tactic.name}</span>
-              <span>{tactic.description}</span>
-              <pre>{tactic.example}</pre>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   )
 }

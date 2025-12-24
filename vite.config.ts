@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import type { IncomingMessage } from 'node:http'
+import { resolve } from 'node:path'
 
 type ExplainRequest = {
   proof?: string
@@ -120,4 +121,13 @@ export default defineConfig({
       },
     },
   ],
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        tactics: resolve(__dirname, 'tactics.html'),
+        visualizer: resolve(__dirname, 'visualizer.html'),
+      },
+    },
+  },
 })

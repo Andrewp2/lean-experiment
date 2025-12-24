@@ -1,0 +1,13 @@
+{
+  "name": "lean-lsp-bridge",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "vscode-jsonrpc": "^8.2.0"
+  }
+}
