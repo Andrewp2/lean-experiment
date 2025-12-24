@@ -1,30 +1,26 @@
+import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { StreamMessageReader, StreamMessageWriter, createMessageConnection } from 'vscode-jsonrpc/node'
+import {
+  StreamMessageReader,
+  StreamMessageWriter,
+  createMessageConnection,
+} from 'vscode-jsonrpc/node.js'
+
+const getEnv = (name, fallback) => process.env[name] ?? fallback
 
 const app = express()
 const allowedOrigins = getEnv('ALLOWED_ORIGINS', '')
   .split(',')
   .map((value) => value.trim())
   .filter(Boolean)
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
-        callback(null, true)
-        return
-      }
-      callback(new Error('Origin not allowed'))
-    },
-  }),
-)
+const corsOptions = allowedOrigins.length > 0 ? { origin: allowedOrigins } : { origin: true }
+app.use(cors(corsOptions))
 app.use(express.json({ limit: '5mb' }))
 
 const sessions = new Map()
-
-const getEnv = (name, fallback) => process.env[name] ?? fallback
 
 const createSession = async () => {
   const id = randomUUID()

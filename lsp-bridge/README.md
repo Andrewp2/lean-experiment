@@ -12,16 +12,17 @@ cd lsp-bridge
 npm install
 ```
 
-Set environment variables:
+Create a `.env` file in `lsp-bridge/` (recommended for secrets):
 ```sh
-export LEAN_PROJECT_ROOT=/path/to/lean/project
-export LEAN_SERVER_CMD=lean
-export LEAN_SERVER_ARGS="--server"
-export LEAN_GOALS_METHOD="$/lean/plainGoal"
-export HOST=127.0.0.1
-export LEAN_BRIDGE_TOKEN="replace-me"
-export ALLOWED_ORIGINS="https://your-domain.vercel.app,https://your-custom-domain.com"
-export PORT=8787
+PORT=8787
+HOST=127.0.0.1
+LEAN_PROJECT_ROOT=/path/to/lean/project
+LEAN_PROJECT_URI=file:///path/to/lean/project
+LEAN_SERVER_CMD=/root/.elan/bin/lean
+LEAN_SERVER_ARGS=--server
+LEAN_GOALS_METHOD=$/lean/plainGoal
+LEAN_BRIDGE_TOKEN=replace-me
+ALLOWED_ORIGINS=https://your-domain.vercel.app,https://your-custom-domain.com
 ```
 
 Start:

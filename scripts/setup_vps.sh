@@ -40,6 +40,19 @@ echo "==> Installing LSP bridge dependencies"
 cd "$BRIDGE_DIR"
 npm install
 
+echo "==> Writing bridge env file"
+cat >"$BRIDGE_DIR/.env" <<EOF
+PORT=8787
+HOST=${HOST}
+LEAN_PROJECT_ROOT=${LEAN_PROJECT_ROOT}
+LEAN_PROJECT_URI=file://${LEAN_PROJECT_ROOT}
+LEAN_SERVER_CMD=/root/.elan/bin/lean
+LEAN_SERVER_ARGS=--server
+LEAN_GOALS_METHOD=\$/lean/plainGoal
+LEAN_BRIDGE_TOKEN=${LEAN_BRIDGE_TOKEN}
+ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+EOF
+
 echo "==> Preparing Lean workspace (placeholder)"
 mkdir -p "$LEAN_PROJECT_ROOT"
 if [ ! -f "$LEAN_PROJECT_ROOT/lakefile.lean" ]; then
