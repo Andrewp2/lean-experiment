@@ -26,6 +26,14 @@
   --fl-orange: #ff6600;
 }
 
+.theme-reticle {
+  --bg: #000000;
+  --ink: #ffffff;
+  --muted: #aaaaaa;
+  --border: #333333;
+  --border-strong: #666666;
+}
+
 *,
 *::before,
 *::after {

@@ -1,16 +1,82 @@
 import { useState } from 'react'
 import './App.css'
 import { leanSamples } from './assets/samples'
+import { importRegistry } from './assets/imports'
 
 function App() {
   const [input, setInput] = useState(leanSamples[0]?.value ?? '')
   const [activeImports, setActiveImports] = useState<string[]>(leanSamples[0]?.imports ?? [])
   const [output, setOutput] = useState<string[]>([])
+  const [theme, setTheme] = useState<'highk' | 'reticle'>('highk')
+  const [status, setStatus] = useState<'idle' | 'pending' | 'ready' | 'error'>('idle')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const idleLines = ['LLM output will appear here.']
+  const pendingLines = ['Request in progress.']
+  const errorLines = [errorMessage ?? 'LLM request failed.']
+
+  const displayedLines =
+    output.length > 0
+      ? output
+      : status === 'pending'
+        ? pendingLines
+        : status === 'error'
+          ? errorLines
+          : idleLines
+  const isPlaceholder = output.length === 0 && status === 'idle'
+
+  const handleRequest = async () => {
+    if (!input.trim()) {
+      setErrorMessage('Add a Lean proof before requesting the LLM.')
+      setStatus('error')
+      return
+    }
+
+    const importPayload = activeImports
+      .map((name) => {
+        const content = importRegistry[name]
+        return content ? { name, content } : null
+      })
+      .filter((entry): entry is { name: string; content: string } => entry !== null)
+
+    setStatus('pending')
+    setErrorMessage(null)
+    setOutput([])
+
+    try {
+      const response = await fetch('/api/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proof: input,
+          imports: importPayload,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(errorText || 'Request failed.')
+      }
+
+      const data = (await response.json()) as { text?: string }
+      const text = data.text?.trim()
+      if (!text) {
+        setStatus('error')
+        setErrorMessage('No response text returned from the server.')
+        return
+      }
+
+      setOutput(text.split('\n').filter((line) => line.trim().length > 0))
+      setStatus('ready')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Request failed.'
+      setErrorMessage(message)
+      setStatus('error')
+    }
+  }
 
   return (
-    <div className="page theme-highk">
+    <div className={`page theme-${theme}`}>
       <header className="site-header">
         <div className="wordmark">
           <span className="wordmark-title">LEAN LAB</span>
@@ -22,6 +88,12 @@ function App() {
           <a href="#">Tools</a>
           <a href="#">Contact</a>
         </nav>
+        <button
+          className="ghost-button theme-toggle"
+          onClick={() => setTheme(theme === 'highk' ? 'reticle' : 'highk')}
+        >
+          {theme === 'highk' ? 'RETICLE MODE' : 'HIGHK MODE'}
+        </button>
       </header>
 
       <section className="intro">
@@ -49,7 +121,8 @@ function App() {
           <div className="panel-actions">
             <button
               className="primary-button"
-              onClick={() => setOutput(['LLM request queued. Connect API to return results.'])}
+              onClick={handleRequest}
+              disabled={status === 'pending'}
             >
               Request LLM Explanation
             </button>
@@ -73,13 +146,21 @@ function App() {
           <div className="panel-header">
             <div>
               <h2>Section B · LLM response</h2>
-              <p>Server-generated commentary aligned with the proof context.</p>
+              <p>Receive an explanation from a LLM.</p>
             </div>
-            <span className="status-chip">{output.length > 0 ? 'PENDING' : 'IDLE'}</span>
+            <span className={`status-chip ${status}`}>
+              {status === 'ready'
+                ? 'READY'
+                : status === 'pending'
+                  ? 'PENDING'
+                  : status === 'error'
+                    ? 'ERROR'
+                    : 'IDLE'}
+            </span>
           </div>
           <div className="explain-output">
-            {(output.length > 0 ? output : idleLines).map((line, index) => (
-              <p key={`${line}-${index}`} className={output.length > 0 ? undefined : 'placeholder'}>
+            {displayedLines.map((line, index) => (
+              <p key={`${line}-${index}`} className={isPlaceholder ? 'placeholder' : undefined}>
                 {line}
               </p>
             ))}
@@ -89,7 +170,14 @@ function App() {
               <p className="meta-label">NEXT</p>
               <p className="meta-value">LLM walkthroughs return here after processing.</p>
             </div>
-            <button className="ghost-button" onClick={() => setOutput([])}>
+            <button
+              className="ghost-button"
+              onClick={() => {
+                setOutput([])
+                setStatus('idle')
+                setErrorMessage(null)
+              }}
+            >
               Clear explanation
             </button>
           </div>
