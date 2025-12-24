@@ -1,9 +1,79 @@
+import { useState } from 'react'
 import { SiteHeader } from '../components/SiteHeader'
 import { useThemeMode } from '../hooks/useThemeMode'
 import '../App.css'
 
 export const VisualizerPage = () => {
   const { mode, setMode, theme } = useThemeMode()
+  const [proofInput, setProofInput] = useState(`import Mathlib
+
+theorem add_zero (n : Nat) : n + 0 = n := by
+  induction n with
+  | zero => rfl
+  | succ n ih =>
+    simp [Nat.add_succ, ih]`)
+  const [goalText, setGoalText] = useState<string>('No goals fetched yet.')
+  const [status, setStatus] = useState<'idle' | 'pending' | 'ready' | 'error'>('idle')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  const fetchGoals = async () => {
+    setStatus('pending')
+    setErrorMessage(null)
+
+    try {
+      const sessionResponse = await fetch('/api/lean/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const sessionData = (await sessionResponse.json()) as { sessionId?: string; error?: string }
+      if (!sessionResponse.ok || !sessionData.sessionId) {
+        throw new Error(sessionData.error ?? 'Failed to create session.')
+      }
+
+      const sessionId = sessionData.sessionId
+      const uri = 'file:///opt/lean-workspace/Visualizer.lean'
+
+      const openResponse = await fetch('/api/lean/session/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, uri, text: proofInput }),
+      })
+      if (!openResponse.ok) {
+        const errorText = await openResponse.text()
+        throw new Error(errorText || 'Failed to open document.')
+      }
+
+      const lines = proofInput.split('\n')
+      const line = Math.max(0, lines.length - 1)
+      const character = lines[line]?.length ?? 0
+
+      const goalsResponse = await fetch('/api/lean/session/goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          uri,
+          position: { line, character },
+        }),
+      })
+
+      const goalsData = (await goalsResponse.json()) as { result?: unknown; error?: string }
+      if (!goalsResponse.ok) {
+        throw new Error(goalsData.error ?? 'Failed to fetch goals.')
+      }
+
+      const result = goalsData.result
+      const text =
+        typeof result === 'string' ? result : JSON.stringify(result ?? 'No goal state', null, 2)
+
+      setGoalText(text)
+      setStatus('ready')
+    } catch (error) {
+      setStatus('error')
+      setErrorMessage(error instanceof Error ? error.message : 'Request failed.')
+    }
+  }
 
   return (
     <div className={`page theme-${theme}`}>
@@ -20,6 +90,37 @@ export const VisualizerPage = () => {
             <h2>Section A · Visual output</h2>
             <p>Mock layout showing where tactics and goals will surface.</p>
           </div>
+        </div>
+        <div className="panel">
+          <div className="panel-header">
+            <div>
+              <h2>Input · Lean source</h2>
+              <p>Paste a Lean proof and request goal snapshots.</p>
+            </div>
+            <span className={`status-chip ${status}`}>
+              {status === 'ready'
+                ? 'READY'
+                : status === 'pending'
+                  ? 'PENDING'
+                  : status === 'error'
+                    ? 'ERROR'
+                    : 'IDLE'}
+            </span>
+          </div>
+          <textarea
+            className="code-input"
+            spellCheck={false}
+            value={proofInput}
+            onChange={(event) => setProofInput(event.target.value)}
+          />
+          <div className="panel-actions">
+            <button className="primary-button" onClick={fetchGoals} disabled={status === 'pending'}>
+              Fetch goal snapshot
+            </button>
+          </div>
+          {status === 'error' && errorMessage ? (
+            <p className="placeholder">Error: {errorMessage}</p>
+          ) : null}
         </div>
         <div className="visualizer-grid">
           <div className="panel">
@@ -47,7 +148,7 @@ export const VisualizerPage = () => {
             <div className="goal-flow">
               <div className="goal-card">
                 <p className="meta-label">GOAL 0</p>
-                <pre>⊢ n + 0 = n</pre>
+                <pre>{goalText}</pre>
               </div>
               <div className="goal-arrow">↓</div>
               <div className="goal-card">
