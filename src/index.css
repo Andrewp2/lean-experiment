@@ -26,7 +26,9 @@
   --fl-orange: #ff6600;
 }
 
-.theme-reticle {
+.theme-reticle,
+html.theme-reticle,
+body.theme-reticle {
   --bg: #000000;
   --ink: #ffffff;
   --muted: #aaaaaa;
@@ -40,6 +42,7 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
   min-height: 100vh;

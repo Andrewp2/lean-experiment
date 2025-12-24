@@ -38,8 +38,8 @@ Use these for larger areas when you need color but want to keep contrast comfort
 Adopt a named theme system, with two primary modes and optional variants.
 
 Primary:
-- HIGHK: light mode, white background with dark text
-- RETICLE: dark mode, black background with bright text
+- Light Mode: light mode, white background with dark text
+- Dark Mode: dark mode, black background with bright text
 
 Optional variants (for special sections, campaigns, or internal tools):
 - POLYIMIDE: amber leaning
@@ -143,13 +143,13 @@ Tables are first-class UI.
   - REV A, REV B for revisions
 
 ## Accessibility
-- Contrast first: HIGHK and RETICLE should both meet strong contrast targets
+- Contrast first: Light Mode and Dark Mode should both meet strong contrast targets
 - Visible focus states on all interactive controls
 - Do not rely on color alone for status: include a label or icon
 - Ensure tables are readable on mobile via horizontal scroll and sticky headers when needed
 
 ## Implementation notes (design tokens)
-- Define tokens as named primitives (BLACK, WHITE, FL_CYAN) and theme mappings (RETICLE_BG, RETICLE_FG).
+- Define tokens as named primitives (BLACK, WHITE, FL_CYAN) and theme mappings (DARK_BG, DARK_FG).
 - Keep the token set small. Avoid large component-specific token sprawl.
 
 

@@ -1,13 +1,30 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 import { leanSamples } from './assets/samples'
+import { tactics } from './assets/tactics'
 import { importRegistry } from './assets/imports'
 
 function App() {
   const [input, setInput] = useState(leanSamples[0]?.value ?? '')
   const [activeImports, setActiveImports] = useState<string[]>(leanSamples[0]?.imports ?? [])
   const [output, setOutput] = useState<string[]>([])
-  const [theme, setTheme] = useState<'highk' | 'reticle'>('highk')
+  const [mode, setMode] = useState<'light' | 'dark' | 'system'>(() => {
+    if (typeof window === 'undefined') {
+      return 'system'
+    }
+    const stored = window.localStorage.getItem('theme')
+    if (stored === 'dark' || stored === 'light' || stored === 'system') {
+      return stored
+    }
+    return 'system'
+  })
+  const [theme, setTheme] = useState<'highk' | 'reticle'>(() => {
+    if (typeof window === 'undefined') {
+      return 'highk'
+    }
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    return prefersDark ? 'reticle' : 'highk'
+  })
   const [status, setStatus] = useState<'idle' | 'pending' | 'ready' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -75,6 +92,34 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    document.documentElement.classList.toggle('theme-reticle', theme === 'reticle')
+    document.documentElement.classList.toggle('theme-highk', theme === 'highk')
+  }, [theme])
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = (event: MediaQueryListEvent) => {
+      if (mode === 'system') {
+        setTheme(event.matches ? 'reticle' : 'highk')
+      }
+    }
+    media.addEventListener('change', handleChange)
+    return () => {
+      media.removeEventListener('change', handleChange)
+    }
+  }, [mode])
+
+  useEffect(() => {
+    if (mode === 'system') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      setTheme(prefersDark ? 'reticle' : 'highk')
+    } else {
+      setTheme(mode === 'dark' ? 'reticle' : 'highk')
+    }
+    window.localStorage.setItem('theme', mode)
+  }, [mode])
+
   return (
     <div className={`page theme-${theme}`}>
       <header className="site-header">
@@ -82,18 +127,32 @@ function App() {
           <span className="wordmark-title">LEAN LAB</span>
           <span className="wordmark-sub">PROOF WALKTHROUGH SYSTEM</span>
         </div>
-        <nav className="site-nav">
+        {/* <nav className="site-nav">
           <a href="#">Work</a>
           <a href="#">Spec</a>
           <a href="#">Tools</a>
           <a href="#">Contact</a>
-        </nav>
-        <button
-          className="ghost-button theme-toggle"
-          onClick={() => setTheme(theme === 'highk' ? 'reticle' : 'highk')}
-        >
-          {theme === 'highk' ? 'RETICLE MODE' : 'HIGHK MODE'}
-        </button>
+        </nav> */}
+        <div className="theme-toggle">
+          <button
+            className={`ghost-button ${mode === 'light' ? 'active' : ''}`}
+            onClick={() => setMode('light')}
+          >
+            LIGHT
+          </button>
+          <button
+            className={`ghost-button ${mode === 'system' ? 'active' : ''}`}
+            onClick={() => setMode('system')}
+          >
+            SYSTEM
+          </button>
+          <button
+            className={`ghost-button ${mode === 'dark' ? 'active' : ''}`}
+            onClick={() => setMode('dark')}
+          >
+            DARK
+          </button>
+        </div>
       </header>
 
       <section className="intro">
@@ -166,10 +225,6 @@ function App() {
             ))}
           </div>
           <div className="panel-footer">
-            <div>
-              <p className="meta-label">NEXT</p>
-              <p className="meta-value">LLM walkthroughs return here after processing.</p>
-            </div>
             <button
               className="ghost-button"
               onClick={() => {
@@ -210,6 +265,29 @@ function App() {
               >
                 Load
               </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="samples">
+        <div className="panel-header">
+          <div>
+            <h2>Section D · Tactic reference</h2>
+            <p>Common tactics with short explanations and minimal examples.</p>
+          </div>
+        </div>
+        <div className="table table-tactics">
+          <div className="table-row table-head">
+            <span>TACTIC</span>
+            <span>SUMMARY</span>
+            <span>EXAMPLE</span>
+          </div>
+          {tactics.map((tactic) => (
+            <div className="table-row" key={tactic.name}>
+              <span>{tactic.name}</span>
+              <span>{tactic.description}</span>
+              <pre>{tactic.example}</pre>
             </div>
           ))}
         </div>

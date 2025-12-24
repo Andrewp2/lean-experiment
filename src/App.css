@@ -1,10 +1,13 @@
 .page {
-  max-width: 96ch;
+  max-width: 120ch;
   margin: 0 auto;
   padding: 32px 24px 48px;
   display: flex;
   flex-direction: column;
   gap: 32px;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
 }
 
 .site-header {
@@ -49,6 +52,19 @@
 
 .theme-toggle {
   margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.ghost-button.active {
+  border-color: var(--fl-cyan);
+  color: var(--fl-cyan);
+}
+
+.theme-reticle .status-chip.pending,
+.theme-reticle .status-chip.ready,
+.theme-reticle .status-chip.error {
+  background: #000000;
 }
 
 .meta-grid {
@@ -164,6 +180,7 @@
 .primary-button:hover,
 .ghost-button:hover {
   border-color: var(--fl-cyan);
+  color: var(--fl-cyan);
 }
 
 .status-chip {
@@ -270,6 +287,19 @@
   text-transform: uppercase;
 }
 
+.table-tactics .table-row {
+  grid-template-columns: 0.6fr 1.2fr 1.6fr;
+  align-items: start;
+}
+
+.table-tactics pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
 .theme-reticle .table-head {
   background: #0a0a0a;
 }
@@ -324,6 +354,17 @@
 
 .theme-reticle .samples .panel-header {
   border-color: #333333;
+}
+
+.theme-toggle .ghost-button.active {
+  border-color: var(--fl-cyan);
+  color: var(--fl-cyan);
+}
+
+.theme-reticle .primary-button:hover,
+.theme-reticle .ghost-button:hover {
+  border-color: var(--fl-cyan);
+  color: var(--fl-cyan);
 }
 
 .table-action {
