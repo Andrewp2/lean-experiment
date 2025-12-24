@@ -1,12 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import type { IncomingMessage } from 'node:http'
 
 type ExplainRequest = {
   proof?: string
   imports?: Array<{ name: string; content: string }>
 }
 
-const readJson = async (req: { on: (event: string, cb: (chunk: any) => void) => void }) =>
+const readJson = async (req: IncomingMessage) =>
   new Promise<ExplainRequest>((resolve, reject) => {
     let body = ''
     req.on('data', (chunk) => {
