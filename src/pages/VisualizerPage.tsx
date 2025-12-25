@@ -16,6 +16,18 @@ theorem add_zero (n : Nat) : n + 0 = n := by
   const [status, setStatus] = useState<'idle' | 'pending' | 'ready' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
+  const parseJsonSafe = async (response: Response) => {
+    const raw = await response.text()
+    if (!raw) {
+      return { data: null, raw }
+    }
+    try {
+      return { data: JSON.parse(raw), raw }
+    } catch {
+      return { data: null, raw }
+    }
+  }
+
   const fetchGoals = async () => {
     setStatus('pending')
     setErrorMessage(null)
@@ -26,9 +38,14 @@ theorem add_zero (n : Nat) : n + 0 = n := by
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       })
-      const sessionData = (await sessionResponse.json()) as { sessionId?: string; error?: string }
-      if (!sessionResponse.ok || !sessionData.sessionId) {
-        throw new Error(sessionData.error ?? 'Failed to create session.')
+      const sessionParsed = await parseJsonSafe(sessionResponse)
+      const sessionData = sessionParsed.data as { sessionId?: string; error?: string } | null
+      if (!sessionResponse.ok || !sessionData?.sessionId) {
+        throw new Error(
+          sessionData?.error ??
+            sessionParsed.raw ||
+            `Failed to create session (status ${sessionResponse.status}).`,
+        )
       }
 
       const sessionId = sessionData.sessionId
@@ -58,12 +75,17 @@ theorem add_zero (n : Nat) : n + 0 = n := by
         }),
       })
 
-      const goalsData = (await goalsResponse.json()) as { result?: unknown; error?: string }
+      const goalsParsed = await parseJsonSafe(goalsResponse)
+      const goalsData = goalsParsed.data as { result?: unknown; error?: string } | null
       if (!goalsResponse.ok) {
-        throw new Error(goalsData.error ?? 'Failed to fetch goals.')
+        throw new Error(
+          goalsData?.error ??
+            goalsParsed.raw ||
+            `Failed to fetch goals (status ${goalsResponse.status}).`,
+        )
       }
 
-      const result = goalsData.result
+      const result = goalsData?.result
       const text =
         typeof result === 'string' ? result : JSON.stringify(result ?? 'No goal state', null, 2)
 
