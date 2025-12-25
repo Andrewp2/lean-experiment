@@ -136,7 +136,12 @@ theorem add_zero (n : Nat) : n + 0 = n := by
             onChange={(event) => setProofInput(event.target.value)}
           />
           <div className="panel-actions">
-            <button className="primary-button" onClick={fetchGoals} disabled={status === 'pending'}>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={fetchGoals}
+              disabled={status === 'pending'}
+            >
               Fetch goal snapshot
             </button>
           </div>
