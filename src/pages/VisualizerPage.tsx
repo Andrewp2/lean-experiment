@@ -43,8 +43,8 @@ theorem add_zero (n : Nat) : n + 0 = n := by
       if (!sessionResponse.ok || !sessionData?.sessionId) {
         throw new Error(
           sessionData?.error ??
-            sessionParsed.raw ||
-            `Failed to create session (status ${sessionResponse.status}).`,
+          (sessionParsed.raw ||
+            `Failed to create session (status ${sessionResponse.status}).`),
         )
       }
 
@@ -80,8 +80,8 @@ theorem add_zero (n : Nat) : n + 0 = n := by
       if (!goalsResponse.ok) {
         throw new Error(
           goalsData?.error ??
-            goalsParsed.raw ||
-            `Failed to fetch goals (status ${goalsResponse.status}).`,
+          (goalsParsed.raw ||
+            `Failed to fetch goals (status ${goalsResponse.status}).`),
         )
       }
 
