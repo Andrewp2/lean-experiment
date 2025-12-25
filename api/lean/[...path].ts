@@ -37,6 +37,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Content-Type', contentType)
     res.send(await upstream.text())
   } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Proxy failed.' })
+    const message = error instanceof Error ? error.message : 'Proxy failed.'
+    const cause =
+      error instanceof Error && 'cause' in error
+        ? (error as Error & { cause?: unknown }).cause
+        : undefined
+    console.error('Lean proxy fetch failed', { url, message, cause })
+    res.status(500).json({ error: message })
   }
 }
