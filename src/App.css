@@ -434,6 +434,21 @@
   letter-spacing: 0.08em;
 }
 
+.treemap-select input[type="text"] {
+  min-width: 220px;
+  background: transparent;
+  color: var(--ink);
+  border: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  font-family: inherit;
+  text-transform: none;
+}
+
+.treemap-select input[type="text"]::placeholder {
+  color: var(--muted);
+}
+
 .treemap-select select:focus {
   outline: none;
 }

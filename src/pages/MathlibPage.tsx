@@ -39,6 +39,7 @@ const useTreemap = (
   hoveredGroup: string | null,
   tooltipRef: React.RefObject<HTMLDivElement>,
   portingScale: PortingScale,
+  mathlibPath: string,
 ) => {
   useEffect(() => {
     const container = containerRef.current
@@ -84,19 +85,23 @@ const useTreemap = (
 
     const displayRoot = d3.hierarchy({
       name: zoomRoot.data.name,
+      path: zoomRoot.data.path,
       children: topLevel.map((child) => {
         const grandChildren = child.children ?? []
         if (grandChildren.length === 0) {
           return {
             name: child.data.name,
+            path: child.data.path,
             series: child.data.series ?? {},
             isLeaf: true,
           }
         }
         return {
           name: child.data.name,
+          path: child.data.path,
           children: grandChildren.map((g) => ({
             name: g.data.name,
+            path: g.data.path,
             series: g.data.series ?? {},
             isLeaf: !(g.children && g.children.length > 0),
           })),
@@ -193,6 +198,18 @@ const useTreemap = (
 
     const parentNodes = tiledRoot.descendants().filter((d) => d.depth === 1)
     const childNodes = tiledRoot.descendants().filter((d) => d.depth === 2)
+    const normalizedBasePath = mathlibPath.trim().replace(/\/+$/, '')
+    const buildVscodeLink = (node: d3.HierarchyRectangularNode<TreemapNode>) => {
+      if (!normalizedBasePath) {
+        return null
+      }
+      const nodePath = node.data.path?.replace(/^\/+/, '')
+      if (!nodePath) {
+        return null
+      }
+      const fullPath = `${normalizedBasePath}/${nodePath}.lean`
+      return `vscode://file/${encodeURI(fullPath)}`
+    }
 
     const parents = svg.selectAll('g.parent').data(parentNodes).enter().append('g').attr('class', 'parent')
     parents
@@ -246,6 +263,13 @@ const useTreemap = (
       .attr('fill', (d) => fillForNode(d, d.parent?.data.name ?? ''))
       .attr('data-group', (d) => d.parent?.data.name ?? '')
       .on('click', (_, d) => {
+        if (d.data.isLeaf) {
+          const link = buildVscodeLink(d)
+          if (link) {
+            window.location.href = link
+            return
+          }
+        }
         const parent = d.parent?.data.name
         if (parent) {
           setZoomPath([...zoomPath, parent, d.data.name])
@@ -310,6 +334,7 @@ const useTreemap = (
     hoveredGroup,
     tooltipRef,
     portingScale,
+    mathlibPath,
   ])
 }
 
@@ -331,6 +356,9 @@ export const MathlibPage = () => {
   const [colorMode, setColorMode] = useState<ColorMode>('absolute')
   const [zoomPath, setZoomPath] = useState<string[]>([])
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null)
+  const [mathlibPath, setMathlibPath] = useState<string>(() => (
+    typeof window === 'undefined' ? '' : (window.localStorage.getItem('mathlibPath') ?? '')
+  ))
   const pastel = [
     '#ffd8be',
     '#cde7f0',
@@ -377,6 +405,7 @@ export const MathlibPage = () => {
     hoveredGroup,
     tooltipRef,
     portingScale,
+    mathlibPath,
   )
 
   useEffect(() => {
@@ -390,9 +419,16 @@ export const MathlibPage = () => {
     }
   }, [seriesKeys])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    window.localStorage.setItem('mathlibPath', mathlibPath)
+  }, [mathlibPath])
+
   const buildTreeFromEntries = (entries: UploadedEntry[]): TreemapNode => {
     const rootName = entries[0]?.path.split('/').filter(Boolean)[0] ?? 'Root'
-    const rootNode: TreemapNode = { name: rootName, series: {}, children: [] }
+    const rootNode: TreemapNode = { name: rootName, path: rootName, series: {}, children: [] }
     const index = new Map<string, TreemapNode>()
     index.set('', rootNode)
     for (const entry of entries) {
@@ -403,7 +439,7 @@ export const MathlibPage = () => {
         currentPath = currentPath ? `${currentPath}/${part}` : part
         let child = index.get(currentPath)
         if (!child) {
-          child = { name: part, series: {}, children: [] }
+          child = { name: part, path: currentPath, series: {}, children: [] }
           current.children = current.children ?? []
           current.children.push(child)
           index.set(currentPath, child)
@@ -488,6 +524,15 @@ export const MathlibPage = () => {
           <label className="treemap-select">
             <span>DATA</span>
             <input type="file" accept="application/json" onChange={handleUpload} />
+          </label>
+          <label className="treemap-select">
+            <span>MATHLIB PATH</span>
+            <input
+              type="text"
+              value={mathlibPath}
+              onChange={(event) => setMathlibPath(event.target.value)}
+              placeholder="/path/to/mathlib4"
+            />
           </label>
           <button className="ghost-button" onClick={handleReset}>
             RESET DEFAULT
