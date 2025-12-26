@@ -467,15 +467,15 @@ export const MathlibPage = () => {
       <SiteHeader mode={mode} onModeChange={setMode} />
 
       <section className="intro">
-        <h1>TR-004 · Mathlib Treemap</h1>
-        <p>Overview of Mathlib modules, definitions, and lemma density.</p>
+        <h1>TR-004 · Repo Metrics Map</h1>
+        <p>Interactive treemap for any repository metrics JSON.</p>
       </section>
 
       <section className="samples">
         <div className="panel-header">
           <div>
             <h2>Section A · Module coverage</h2>
-            <p>Distribution of files and definitions across Mathlib.</p>
+            <p>Distribution of files and metrics across the loaded dataset.</p>
           </div>
         </div>
         <div className="panel">
