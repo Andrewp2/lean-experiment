@@ -19,11 +19,22 @@ const mathlibDir = fs.existsSync(path.join(rootDir, 'Mathlib'))
   ? path.join(rootDir, 'Mathlib')
   : rootDir
 
-const root = { name: 'Mathlib', children: new Map(), size: 0, count: 0 }
+const root = {
+  name: 'Mathlib',
+  children: new Map(),
+  size: 0,
+  count: 0,
+  loc: 0,
+  portingNotes: 0,
+  adaptationNotes: 0,
+  noteTotal: 0,
+}
 let totalFiles = 0
 const sampleFiles = []
+const portingNoteRegex = /porting note/gi
+const adaptationNoteRegex = /#adaptation_note\b/gi
 
-const addFile = (relativePath, size) => {
+const addFile = (relativePath, size, loc, portingNotes, adaptationNotes) => {
   const parts = relativePath.split(path.sep).filter(Boolean)
   if (parts[0] === 'Mathlib') {
     parts.shift()
@@ -39,6 +50,10 @@ const addFile = (relativePath, size) => {
   let node = root
   node.size += size
   node.count += 1
+  node.loc += loc
+  node.portingNotes += portingNotes
+  node.adaptationNotes += adaptationNotes
+  node.noteTotal += portingNotes + adaptationNotes
   totalFiles += 1
   if (sampleFiles.length < 5) {
     sampleFiles.push(relativePath)
@@ -48,11 +63,24 @@ const addFile = (relativePath, size) => {
     const name = segments[i]
     let child = node.children.get(name)
     if (!child) {
-      child = { name, children: new Map(), size: 0, count: 0 }
+      child = {
+        name,
+        children: new Map(),
+        size: 0,
+        count: 0,
+        loc: 0,
+        portingNotes: 0,
+        adaptationNotes: 0,
+        noteTotal: 0,
+      }
       node.children.set(name, child)
     }
     child.size += size
     child.count += 1
+    child.loc += loc
+    child.portingNotes += portingNotes
+    child.adaptationNotes += adaptationNotes
+    child.noteTotal += portingNotes + adaptationNotes
     node = child
   }
 }
@@ -65,8 +93,12 @@ const walk = (dir, baseDir) => {
       walk(fullPath, baseDir)
     } else if (entry.isFile() && entry.name.endsWith('.lean')) {
       const stats = fs.statSync(fullPath)
+      const content = fs.readFileSync(fullPath, 'utf8')
+      const loc = content.split(/\r\n|\r|\n/).length
+      const portingNotes = Array.from(content.matchAll(portingNoteRegex)).length
+      const adaptationNotes = Array.from(content.matchAll(adaptationNoteRegex)).length
       const relativePath = path.relative(baseDir, fullPath)
-      addFile(relativePath, stats.size)
+      addFile(relativePath, stats.size, loc, portingNotes, adaptationNotes)
     }
   }
 }
@@ -90,6 +122,34 @@ const sumCount = (node) => {
     return node.count
   }
   return (node.children ?? []).reduce((sum, child) => sum + sumCount(child), 0)
+}
+
+const sumLoc = (node) => {
+  if (typeof node.loc === 'number') {
+    return node.loc
+  }
+  return (node.children ?? []).reduce((sum, child) => sum + sumLoc(child), 0)
+}
+
+const sumPortingNotes = (node) => {
+  if (typeof node.portingNotes === 'number') {
+    return node.portingNotes
+  }
+  return (node.children ?? []).reduce((sum, child) => sum + sumPortingNotes(child), 0)
+}
+
+const sumAdaptationNotes = (node) => {
+  if (typeof node.adaptationNotes === 'number') {
+    return node.adaptationNotes
+  }
+  return (node.children ?? []).reduce((sum, child) => sum + sumAdaptationNotes(child), 0)
+}
+
+const sumNoteTotal = (node) => {
+  if (typeof node.noteTotal === 'number') {
+    return node.noteTotal
+  }
+  return (node.children ?? []).reduce((sum, child) => sum + sumNoteTotal(child), 0)
 }
 
 const normalizeNode = (node) => {
@@ -124,6 +184,10 @@ const normalizeNode = (node) => {
     children: otherChildren,
     value: otherChildren.reduce((sum, child) => sum + sumValue(child), 0),
     count: otherChildren.reduce((sum, child) => sum + sumCount(child), 0),
+    loc: otherChildren.reduce((sum, child) => sum + sumLoc(child), 0),
+    portingNotes: otherChildren.reduce((sum, child) => sum + sumPortingNotes(child), 0),
+    adaptationNotes: otherChildren.reduce((sum, child) => sum + sumAdaptationNotes(child), 0),
+    noteTotal: otherChildren.reduce((sum, child) => sum + sumNoteTotal(child), 0),
   })
 
   return { ...node, children: [...keep, otherNode] }
@@ -132,7 +196,15 @@ const normalizeNode = (node) => {
 const toJson = (node) => {
   const children = node.children ? Array.from(node.children.values()).map(toJson) : []
   if (children.length === 0) {
-    return { name: node.name, value: node.size, count: node.count }
+    return {
+      name: node.name,
+      value: node.size,
+      count: node.count,
+      loc: node.loc,
+      portingNotes: node.portingNotes,
+      adaptationNotes: node.adaptationNotes,
+      noteTotal: node.noteTotal,
+    }
   }
 
   return {
@@ -140,6 +212,10 @@ const toJson = (node) => {
     children,
     value: node.size,
     count: node.count,
+    loc: node.loc,
+    portingNotes: node.portingNotes,
+    adaptationNotes: node.adaptationNotes,
+    noteTotal: node.noteTotal,
   }
 }
 

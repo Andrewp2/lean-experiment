@@ -9,19 +9,27 @@ type TreemapNode = {
   name: string
   value?: number
   count?: number
+  loc?: number
+  portingNotes?: number
+  adaptationNotes?: number
+  noteTotal?: number
   children?: TreemapNode[]
   isLeaf?: boolean
 }
 
+type TreemapMode = 'size' | 'count' | 'porting' | 'adaptation' | 'notes'
+type PortingScale = { low: string; high: string }
+
 const useTreemap = (
   containerRef: React.RefObject<HTMLDivElement>,
   data: TreemapNode,
-  mode: 'size' | 'count',
+  mode: TreemapMode,
   zoomPath: string[],
   setZoomPath: (path: string[]) => void,
   colors: string[],
   hoveredGroup: string | null,
   tooltipRef: React.RefObject<HTMLDivElement>,
+  portingScale: PortingScale,
 ) => {
   useEffect(() => {
     const container = containerRef.current
@@ -43,9 +51,19 @@ const useTreemap = (
     const tooltip = tooltipRef.current
     const formatter = new Intl.NumberFormat('en-US')
 
+    const valueForMode = (node: TreemapNode) => {
+      if (mode === 'count') {
+        return node.count ?? 0
+      }
+      if (mode === 'porting' || mode === 'adaptation' || mode === 'notes') {
+        return node.loc ?? 0
+      }
+      return node.value ?? 0
+    }
+
     const root = d3
       .hierarchy<TreemapNode>(data)
-      .sum((d) => (mode === 'count' ? d.count ?? 0 : d.value ?? 0))
+      .sum((d) => valueForMode(d))
       .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
 
     const findNode = (node: d3.HierarchyNode<TreemapNode>, path: string[]) => {
@@ -63,6 +81,16 @@ const useTreemap = (
     const zoomRoot = findNode(root, zoomPath)
     const topLevel = zoomRoot.children ?? []
 
+    const noteValueForMode = (node: TreemapNode) => {
+      if (mode === 'adaptation') {
+        return node.adaptationNotes ?? 0
+      }
+      if (mode === 'notes') {
+        return node.noteTotal ?? 0
+      }
+      return node.portingNotes ?? 0
+    }
+
     const displayRoot = d3.hierarchy({
       name: zoomRoot.data.name,
       children: topLevel.map((child) => {
@@ -72,6 +100,10 @@ const useTreemap = (
             name: child.data.name,
             value: child.data.value ?? 0,
             count: child.data.count ?? 0,
+            loc: child.data.loc ?? 0,
+            portingNotes: child.data.portingNotes ?? 0,
+            adaptationNotes: child.data.adaptationNotes ?? 0,
+            noteTotal: child.data.noteTotal ?? 0,
             isLeaf: true,
           }
         }
@@ -81,6 +113,10 @@ const useTreemap = (
             name: g.data.name,
             value: g.data.value ?? 0,
             count: g.data.count ?? 0,
+            loc: g.data.loc ?? 0,
+            portingNotes: g.data.portingNotes ?? 0,
+            adaptationNotes: g.data.adaptationNotes ?? 0,
+            noteTotal: g.data.noteTotal ?? 0,
             isLeaf: !(g.children && g.children.length > 0),
           })),
           isLeaf: false,
@@ -88,7 +124,7 @@ const useTreemap = (
       }),
     } as TreemapNode)
 
-    displayRoot.sum((d) => (mode === 'count' ? d.count ?? 0 : d.value ?? 0))
+    displayRoot.sum((d) => valueForMode(d))
     const tiledRoot = d3
       .treemap<TreemapNode>()
       .size([width, height])
@@ -102,6 +138,18 @@ const useTreemap = (
     const color = (name: string) => {
       const index = colorIndexByName.get(name) ?? 0
       return colors[index % colors.length]
+    }
+    const portingMax = Math.max(0, ...topLevel.map((child) => noteValueForMode(child.data)))
+    const portingScaleFn = d3
+      .scaleLinear<string>()
+      .domain([0, portingMax || 1])
+      .range([portingScale.low, portingScale.high])
+
+    const fillForNode = (node: TreemapNode, fallbackName: string) => {
+      if (mode === 'porting' || mode === 'adaptation' || mode === 'notes') {
+        return portingScaleFn(noteValueForMode(node))
+      }
+      return color(fallbackName)
     }
 
     const setTooltip = (
@@ -127,7 +175,7 @@ const useTreemap = (
       tooltip.classList.remove('is-visible')
     }
 
-    const labelSuffix = mode === 'count' ? 'files' : 'bytes'
+    const labelSuffix = mode === 'count' ? 'files' : (mode === 'porting' || mode === 'adaptation' || mode === 'notes') ? 'loc' : 'bytes'
 
     const parentNodes = tiledRoot.descendants().filter((d) => d.depth === 1)
     const childNodes = tiledRoot.descendants().filter((d) => d.depth === 2)
@@ -142,7 +190,7 @@ const useTreemap = (
       .attr('class', 'treemap-rect treemap-parent')
       .classed('is-leaf', (d) => !!d.data.isLeaf)
       .classed('is-folder', (d) => !d.data.isLeaf)
-      .attr('fill', (d) => (d.data.isLeaf ? color(d.data.name) : 'none'))
+      .attr('fill', (d) => (d.data.isLeaf ? fillForNode(d.data, d.data.name) : 'none'))
       .attr('data-group', (d) => d.data.name)
       .on('click', (_, d) => {
         setZoomPath([...zoomPath, d.data.name])
@@ -151,8 +199,20 @@ const useTreemap = (
         d3.select(this).classed('is-hovered', true)
       })
       .on('mousemove', (event, d) => {
-        const value = mode === 'count' ? d.data.count ?? d.value ?? 0 : d.data.value ?? d.value ?? 0
         const label = [...zoomPath, d.data.name].filter(Boolean)
+        if (mode === 'porting' || mode === 'adaptation' || mode === 'notes') {
+          const loc = d.data.loc ?? 0
+          const notes = noteValueForMode(d.data)
+          const notesLabel = mode === 'adaptation' ? 'adaptation notes'
+            : mode === 'notes' ? 'notes total'
+              : 'porting notes'
+          setTooltip(event, label, notes, notesLabel)
+          if (tooltip) {
+            tooltip.textContent = `${label.join(' / ')} · ${formatter.format(notes)} ${notesLabel} · ${formatter.format(loc)} loc`
+          }
+          return
+        }
+        const value = d.data ? valueForMode(d.data) : d.value ?? 0
         setTooltip(event, label, value, labelSuffix)
       })
       .on('mouseout', function () {
@@ -177,7 +237,7 @@ const useTreemap = (
       .attr('class', 'treemap-rect treemap-child')
       .classed('is-leaf', (d) => !!d.data.isLeaf)
       .classed('is-folder', (d) => !d.data.isLeaf)
-      .attr('fill', (d) => color(d.parent?.data.name ?? ''))
+      .attr('fill', (d) => fillForNode(d.data, d.parent?.data.name ?? ''))
       .attr('data-group', (d) => d.parent?.data.name ?? '')
       .on('click', (_, d) => {
         const parent = d.parent?.data.name
@@ -186,9 +246,21 @@ const useTreemap = (
         }
       })
       .on('mousemove', (event, d) => {
-        const value = mode === 'count' ? d.data.count ?? d.value ?? 0 : d.data.value ?? d.value ?? 0
         const parent = d.parent?.data.name ?? ''
         const label = [...zoomPath, parent, d.data.name].filter(Boolean)
+        if (mode === 'porting' || mode === 'adaptation' || mode === 'notes') {
+          const loc = d.data.loc ?? 0
+          const notes = noteValueForMode(d.data)
+          const notesLabel = mode === 'adaptation' ? 'adaptation notes'
+            : mode === 'notes' ? 'notes total'
+              : 'porting notes'
+          setTooltip(event, label, notes, notesLabel)
+          if (tooltip) {
+            tooltip.textContent = `${label.join(' / ')} · ${formatter.format(notes)} ${notesLabel} · ${formatter.format(loc)} loc`
+          }
+          return
+        }
+        const value = d.data ? valueForMode(d.data) : d.value ?? 0
         setTooltip(event, label, value, labelSuffix)
       })
       .on('mouseover', function () {
@@ -227,14 +299,14 @@ const useTreemap = (
     return () => {
       container.innerHTML = ''
     }
-  }, [containerRef, data, mode, zoomPath, setZoomPath, colors, hoveredGroup, tooltipRef])
+  }, [containerRef, data, mode, zoomPath, setZoomPath, colors, hoveredGroup, tooltipRef, portingScale])
 }
 
 export const MathlibPage = () => {
   const { mode, setMode, theme } = useThemeMode()
   const treemapRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
-  const [activeView, setActiveView] = useState<'size' | 'count'>('size')
+  const [activeView, setActiveView] = useState<TreemapMode>('size')
   const [zoomPath, setZoomPath] = useState<string[]>([])
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null)
   const data = useMemo(() => treemapData as TreemapNode, [])
@@ -267,8 +339,21 @@ export const MathlibPage = () => {
     '#57412a',
   ]
   const palette = theme === 'reticle' ? pastelDark : pastel
+  const portingScale = theme === 'reticle'
+    ? { low: '#1e2a31', high: '#7a3b44' }
+    : { low: '#f6f0d4', high: '#c55b63' }
 
-  useTreemap(treemapRef, data, activeView, zoomPath, setZoomPath, palette, hoveredGroup, tooltipRef)
+  useTreemap(
+    treemapRef,
+    data,
+    activeView,
+    zoomPath,
+    setZoomPath,
+    palette,
+    hoveredGroup,
+    tooltipRef,
+    portingScale,
+  )
 
   useEffect(() => {
     setHoveredGroup(null)
@@ -302,6 +387,24 @@ export const MathlibPage = () => {
             onClick={() => setActiveView('count')}
           >
             FILE COUNT
+          </button>
+          <button
+            className={`ghost-button ${activeView === 'porting' ? 'active' : ''}`}
+            onClick={() => setActiveView('porting')}
+          >
+            PORTING NOTES
+          </button>
+          <button
+            className={`ghost-button ${activeView === 'adaptation' ? 'active' : ''}`}
+            onClick={() => setActiveView('adaptation')}
+          >
+            ADAPTATION NOTES
+          </button>
+          <button
+            className={`ghost-button ${activeView === 'notes' ? 'active' : ''}`}
+            onClick={() => setActiveView('notes')}
+          >
+            NOTES TOTAL
           </button>
         </div>
         <div className="treemap-separator" />
