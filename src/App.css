@@ -150,6 +150,23 @@
   background: #ffffff;
 }
 
+.code-block {
+  margin: 12px 0 20px;
+  border: 1px solid var(--border-strong);
+  padding: 12px;
+  background: #ffffff;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.theme-reticle .code-block {
+  background: #0b0b0b;
+  border-color: #444444;
+  color: #ffffff;
+}
+
 .panel-actions {
   display: flex;
   gap: 8px;
@@ -364,6 +381,42 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.treemap-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border-strong);
+  padding: 6px 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+}
+
+.treemap-select span {
+  color: var(--muted);
+}
+
+.treemap-select select {
+  background: transparent;
+  color: var(--ink);
+  border: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: inherit;
+}
+
+.treemap-select input[type="file"] {
+  color: var(--ink);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.treemap-select select:focus {
+  outline: none;
 }
 
 .treemap-separator {

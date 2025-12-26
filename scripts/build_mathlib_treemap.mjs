@@ -8,6 +8,7 @@ const maxDepth = Number(process.env.MAX_DEPTH ?? '5')
 const minPercent = Number(process.env.MIN_PERCENT ?? '0.01')
 const outputPath =
   process.argv[3] || path.join(projectRoot, 'src', 'assets', 'mathlib_treemap.json')
+const groupByKey = process.env.GROUP_BY ?? 'loc'
 
 if (!mathlibPath) {
   console.error('Provide Mathlib path via MATHLIB_PATH or as the first argument.')
@@ -142,60 +143,12 @@ if (totalFiles < 50) {
   console.warn('Sample files:', sampleFiles)
 }
 
-const sumValue = (node) => {
-  if (typeof node.value === 'number') {
-    return node.value
+const sumSeriesValue = (node, key) => {
+  const current = node.series?.[key]
+  if (typeof current === 'number') {
+    return current
   }
-  return (node.children ?? []).reduce((sum, child) => sum + sumValue(child), 0)
-}
-
-const sumCount = (node) => {
-  if (typeof node.count === 'number') {
-    return node.count
-  }
-  return (node.children ?? []).reduce((sum, child) => sum + sumCount(child), 0)
-}
-
-const sumLoc = (node) => {
-  if (typeof node.loc === 'number') {
-    return node.loc
-  }
-  return (node.children ?? []).reduce((sum, child) => sum + sumLoc(child), 0)
-}
-
-const sumCommentLines = (node) => {
-  if (typeof node.commentLines === 'number') {
-    return node.commentLines
-  }
-  return (node.children ?? []).reduce((sum, child) => sum + sumCommentLines(child), 0)
-}
-
-const sumCodeLines = (node) => {
-  if (typeof node.codeLines === 'number') {
-    return node.codeLines
-  }
-  return (node.children ?? []).reduce((sum, child) => sum + sumCodeLines(child), 0)
-}
-
-const sumPortingNotes = (node) => {
-  if (typeof node.portingNotes === 'number') {
-    return node.portingNotes
-  }
-  return (node.children ?? []).reduce((sum, child) => sum + sumPortingNotes(child), 0)
-}
-
-const sumAdaptationNotes = (node) => {
-  if (typeof node.adaptationNotes === 'number') {
-    return node.adaptationNotes
-  }
-  return (node.children ?? []).reduce((sum, child) => sum + sumAdaptationNotes(child), 0)
-}
-
-const sumNoteTotal = (node) => {
-  if (typeof node.noteTotal === 'number') {
-    return node.noteTotal
-  }
-  return (node.children ?? []).reduce((sum, child) => sum + sumNoteTotal(child), 0)
+  return (node.children ?? []).reduce((sum, child) => sum + sumSeriesValue(child, key), 0)
 }
 
 const normalizeNode = (node) => {
@@ -204,7 +157,8 @@ const normalizeNode = (node) => {
   }
 
   const normalizedChildren = node.children.map(normalizeNode)
-  const total = normalizedChildren.reduce((sum, child) => sum + sumValue(child), 0)
+  const key = node.series?.[groupByKey] !== undefined ? groupByKey : 'bytes'
+  const total = normalizedChildren.reduce((sum, child) => sum + sumSeriesValue(child, key), 0)
   if (total === 0) {
     return { ...node, children: normalizedChildren }
   }
@@ -213,7 +167,7 @@ const normalizeNode = (node) => {
   const otherChildren = []
 
   for (const child of normalizedChildren) {
-    const childValue = sumValue(child)
+    const childValue = sumSeriesValue(child, key)
     if (childValue / total < minPercent) {
       otherChildren.push(child)
     } else {
@@ -225,53 +179,78 @@ const normalizeNode = (node) => {
     return { ...node, children: normalizedChildren }
   }
 
+  const seriesKeys = new Set()
+  for (const child of otherChildren) {
+    Object.keys(child.series ?? {}).forEach((seriesKey) => seriesKeys.add(seriesKey))
+  }
+  const otherSeries = {}
+  for (const seriesKey of seriesKeys) {
+    otherSeries[seriesKey] = otherChildren.reduce(
+      (sum, child) => sum + sumSeriesValue(child, seriesKey),
+      0,
+    )
+  }
   const otherNode = normalizeNode({
     name: 'Miscellaneous',
+    path: `${node.path}/Miscellaneous`,
     children: otherChildren,
-    value: otherChildren.reduce((sum, child) => sum + sumValue(child), 0),
-    count: otherChildren.reduce((sum, child) => sum + sumCount(child), 0),
-    loc: otherChildren.reduce((sum, child) => sum + sumLoc(child), 0),
-    commentLines: otherChildren.reduce((sum, child) => sum + sumCommentLines(child), 0),
-    codeLines: otherChildren.reduce((sum, child) => sum + sumCodeLines(child), 0),
-    portingNotes: otherChildren.reduce((sum, child) => sum + sumPortingNotes(child), 0),
-    adaptationNotes: otherChildren.reduce((sum, child) => sum + sumAdaptationNotes(child), 0),
-    noteTotal: otherChildren.reduce((sum, child) => sum + sumNoteTotal(child), 0),
+    series: otherSeries,
   })
 
   return { ...node, children: [...keep, otherNode] }
 }
 
-const toJson = (node) => {
-  const children = node.children ? Array.from(node.children.values()).map(toJson) : []
+const toJson = (node, currentPath) => {
+  const nodePath = currentPath ? `${currentPath}/${node.name}` : node.name
+  const children = node.children
+    ? Array.from(node.children.values()).map((child) => toJson(child, nodePath))
+    : []
+  const commentRatio = node.codeLines > 0 ? node.commentLines / node.codeLines : 0
   if (children.length === 0) {
     return {
       name: node.name,
-      value: node.size,
-      count: node.count,
-      loc: node.loc,
-      commentLines: node.commentLines,
-      codeLines: node.codeLines,
-      portingNotes: node.portingNotes,
-      adaptationNotes: node.adaptationNotes,
-      noteTotal: node.noteTotal,
+      path: nodePath,
+      series: {
+        bytes: node.size,
+        file_count: node.count,
+        loc: node.loc,
+        comment_lines: node.commentLines,
+        code_lines: node.codeLines,
+        comment_ratio: commentRatio,
+        porting_notes: node.portingNotes,
+        adaptation_notes: node.adaptationNotes,
+        notes_total: node.noteTotal,
+      },
     }
   }
 
   return {
     name: node.name,
     children,
-    value: node.size,
-    count: node.count,
-    loc: node.loc,
-    commentLines: node.commentLines,
-    codeLines: node.codeLines,
-    portingNotes: node.portingNotes,
-    adaptationNotes: node.adaptationNotes,
-    noteTotal: node.noteTotal,
+    path: nodePath,
+    series: {
+      bytes: node.size,
+      file_count: node.count,
+      loc: node.loc,
+      comment_lines: node.commentLines,
+      code_lines: node.codeLines,
+      comment_ratio: commentRatio,
+      porting_notes: node.portingNotes,
+      adaptation_notes: node.adaptationNotes,
+      notes_total: node.noteTotal,
+    },
   }
 }
 
-const output = normalizeNode(toJson(root))
+const collectSeriesKeys = (node, keys) => {
+  Object.keys(node.series ?? {}).forEach((key) => keys.add(key))
+  node.children?.forEach((child) => collectSeriesKeys(child, keys))
+}
+
+const outputRoot = normalizeNode(toJson(root, ''))
+const seriesKeys = new Set()
+collectSeriesKeys(outputRoot, seriesKeys)
+const output = { root: outputRoot, seriesKeys: Array.from(seriesKeys).sort() }
 fs.mkdirSync(path.dirname(outputPath), { recursive: true })
 fs.writeFileSync(outputPath, JSON.stringify(output, null, 2))
 

@@ -1,0 +1,45 @@
+{
+  "root": {
+    "name": "Demo",
+    "series": {
+      "foo": 210,
+      "bar": 9
+    },
+    "children": [
+      {
+        "name": "Core",
+        "series": {
+          "foo": 150,
+          "bar": 6
+        },
+        "children": [
+          {
+            "name": "Basics.lean",
+            "series": {
+              "foo": 90,
+              "bar": 4
+            }
+          },
+          {
+            "name": "Logic.lean",
+            "series": {
+              "foo": 60,
+              "bar": 2
+            }
+          }
+        ]
+      },
+      {
+        "name": "Extras",
+        "series": {
+          "foo": 60,
+          "bar": 3
+        }
+      }
+    ]
+  },
+  "seriesKeys": [
+    "foo",
+    "bar"
+  ]
+}

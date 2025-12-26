@@ -1,0 +1,25 @@
+{
+  "entries": [
+    {
+      "path": "Demo/Core/Basics.lean",
+      "series": {
+        "foo": 90,
+        "bar": 4
+      }
+    },
+    {
+      "path": "Demo/Core/Logic.lean",
+      "series": {
+        "foo": 60,
+        "bar": 2
+      }
+    },
+    {
+      "path": "Demo/Extras",
+      "series": {
+        "foo": 60,
+        "bar": 3
+      }
+    }
+  ]
+}

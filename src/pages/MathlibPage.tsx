@@ -7,32 +7,37 @@ import '../App.css'
 
 type TreemapNode = {
   name: string
-  value?: number
-  count?: number
-  loc?: number
-  commentLines?: number
-  codeLines?: number
-  portingNotes?: number
-  adaptationNotes?: number
-  noteTotal?: number
+  path?: string
+  series: Record<string, number>
   children?: TreemapNode[]
   isLeaf?: boolean
 }
 
-type TreemapMode = 'size' | 'count' | 'porting' | 'adaptation' | 'notes' | 'comments'
+type TreemapData = {
+  root: TreemapNode
+  seriesKeys: string[]
+}
+type UploadedEntry = { path: string; series: Record<string, number> }
+type UploadedData = {
+  root?: TreemapNode
+  seriesKeys?: string[]
+  entries?: UploadedEntry[]
+}
+type ColorMode = 'absolute' | 'relative'
 type PortingScale = { low: string; high: string }
 
 const useTreemap = (
   containerRef: React.RefObject<HTMLDivElement>,
   data: TreemapNode,
-  mode: TreemapMode,
+  sizeSeries: string,
+  colorSeries: string,
+  colorMode: ColorMode,
   zoomPath: string[],
   setZoomPath: (path: string[]) => void,
   colors: string[],
   hoveredGroup: string | null,
   tooltipRef: React.RefObject<HTMLDivElement>,
   portingScale: PortingScale,
-  commentScale: PortingScale,
 ) => {
   useEffect(() => {
     const container = containerRef.current
@@ -54,19 +59,11 @@ const useTreemap = (
     const tooltip = tooltipRef.current
     const formatter = new Intl.NumberFormat('en-US')
 
-    const valueForMode = (node: TreemapNode) => {
-      if (mode === 'count') {
-        return node.count ?? 0
-      }
-      if (mode === 'porting' || mode === 'adaptation' || mode === 'notes' || mode === 'comments') {
-        return node.loc ?? 0
-      }
-      return node.value ?? 0
-    }
+    const valueForSeries = (node: TreemapNode, key: string) => node.series?.[key] ?? 0
 
     const root = d3
       .hierarchy<TreemapNode>(data)
-      .sum((d) => valueForMode(d))
+      .sum((d) => valueForSeries(d, sizeSeries))
       .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
 
     const findNode = (node: d3.HierarchyNode<TreemapNode>, path: string[]) => {
@@ -82,33 +79,7 @@ const useTreemap = (
     }
 
     const zoomRoot = findNode(root, zoomPath)
-    const noteMode = mode === 'porting' || mode === 'adaptation' || mode === 'notes'
-    const noteValueForMode = (node: TreemapNode) => {
-      if (mode === 'adaptation') {
-        return node.adaptationNotes ?? 0
-      }
-      if (mode === 'notes') {
-        return node.noteTotal ?? 0
-      }
-      return node.portingNotes ?? 0
-    }
-    const commentRatio = (node: TreemapNode) => {
-      const comments = node.commentLines ?? 0
-      const code = node.codeLines ?? 0
-      if (comments + code === 0) {
-        return 0
-      }
-      return comments / Math.max(1, code)
-    }
-
-    const topLevel = (zoomRoot.children ?? [])
-      .filter((child) => (noteMode ? noteValueForMode(child.data) > 0 : true))
-      .sort((a, b) => {
-        if (noteMode) {
-          return noteValueForMode(b.data) - noteValueForMode(a.data)
-        }
-        return (b.value ?? 0) - (a.value ?? 0)
-      })
+    const topLevel = zoomRoot.children ?? []
 
     const displayRoot = d3.hierarchy({
       name: zoomRoot.data.name,
@@ -117,38 +88,15 @@ const useTreemap = (
         if (grandChildren.length === 0) {
           return {
             name: child.data.name,
-            value: child.data.value ?? 0,
-            count: child.data.count ?? 0,
-            loc: child.data.loc ?? 0,
-            commentLines: child.data.commentLines ?? 0,
-            codeLines: child.data.codeLines ?? 0,
-            portingNotes: child.data.portingNotes ?? 0,
-            adaptationNotes: child.data.adaptationNotes ?? 0,
-            noteTotal: child.data.noteTotal ?? 0,
+            series: child.data.series ?? {},
             isLeaf: true,
           }
         }
-        const filteredGrandChildren = (noteMode
-          ? grandChildren.filter((g) => noteValueForMode(g.data) > 0)
-          : grandChildren
-        ).sort((a, b) => {
-          if (noteMode) {
-            return noteValueForMode(b.data) - noteValueForMode(a.data)
-          }
-          return (b.value ?? 0) - (a.value ?? 0)
-        })
         return {
           name: child.data.name,
-          children: filteredGrandChildren.map((g) => ({
+          children: grandChildren.map((g) => ({
             name: g.data.name,
-            value: g.data.value ?? 0,
-            count: g.data.count ?? 0,
-            loc: g.data.loc ?? 0,
-            commentLines: g.data.commentLines ?? 0,
-            codeLines: g.data.codeLines ?? 0,
-            portingNotes: g.data.portingNotes ?? 0,
-            adaptationNotes: g.data.adaptationNotes ?? 0,
-            noteTotal: g.data.noteTotal ?? 0,
+            series: g.data.series ?? {},
             isLeaf: !(g.children && g.children.length > 0),
           })),
           isLeaf: false,
@@ -156,7 +104,7 @@ const useTreemap = (
       }),
     } as TreemapNode)
 
-    displayRoot.sum((d) => valueForMode(d))
+    displayRoot.sum((d) => valueForSeries(d, sizeSeries))
     const tiledRoot = d3
       .treemap<TreemapNode>()
       .size([width, height])
@@ -171,25 +119,43 @@ const useTreemap = (
       const index = colorIndexByName.get(name) ?? 0
       return colors[index % colors.length]
     }
-    const portingMax = Math.max(0, ...topLevel.map((child) => noteValueForMode(child.data)))
+    const colorMax = Math.max(0, ...topLevel.map((child) => valueForSeries(child.data, colorSeries)))
     const portingScaleFn = d3
       .scaleLinear<string>()
-      .domain([0, portingMax || 1])
+      .domain([0, colorMax || 1])
       .range([portingScale.low, portingScale.high])
-    const commentMax = Math.max(0, ...topLevel.map((child) => commentRatio(child.data)))
-    const commentScaleFn = d3
-      .scaleLinear<string>()
-      .domain([0, commentMax || 1])
-      .range([commentScale.low, commentScale.high])
 
-    const fillForNode = (node: TreemapNode, fallbackName: string) => {
-      if (mode === 'porting' || mode === 'adaptation' || mode === 'notes') {
-        return portingScaleFn(noteValueForMode(node))
+    const relativeValue = (
+      node: d3.HierarchyRectangularNode<TreemapNode>,
+    ) => {
+      const parent = node.parent
+      if (!parent?.children?.length) {
+        return valueForSeries(node.data, colorSeries)
       }
-      if (mode === 'comments') {
-        return commentScaleFn(commentRatio(node))
+      const total = parent.children.reduce(
+        (sum, child) => sum + valueForSeries(child.data, colorSeries),
+        0,
+      )
+      if (total <= 0) {
+        return 0
       }
-      return color(fallbackName)
+      return valueForSeries(node.data, colorSeries) / total
+    }
+
+    const fillForNode = (
+      node: d3.HierarchyRectangularNode<TreemapNode>,
+      fallbackName: string,
+    ) => {
+      const seriesValue = colorMode === 'relative'
+        ? relativeValue(node)
+        : valueForSeries(node.data, colorSeries)
+      if (seriesValue <= 0) {
+        return '#000000'
+      }
+      if (!Number.isFinite(seriesValue)) {
+        return color(fallbackName)
+      }
+      return portingScaleFn(seriesValue)
     }
 
     const setTooltip = (
@@ -215,11 +181,7 @@ const useTreemap = (
       tooltip.classList.remove('is-visible')
     }
 
-    const labelSuffix = mode === 'count'
-      ? 'files'
-      : (mode === 'porting' || mode === 'adaptation' || mode === 'notes' || mode === 'comments')
-        ? 'loc'
-        : 'bytes'
+    const labelSuffix = sizeSeries.replace(/_/g, ' ')
 
     const parentNodes = tiledRoot.descendants().filter((d) => d.depth === 1)
     const childNodes = tiledRoot.descendants().filter((d) => d.depth === 2)
@@ -234,7 +196,7 @@ const useTreemap = (
       .attr('class', 'treemap-rect treemap-parent')
       .classed('is-leaf', (d) => !!d.data.isLeaf)
       .classed('is-folder', (d) => !d.data.isLeaf)
-      .attr('fill', (d) => (d.data.isLeaf ? fillForNode(d.data, d.data.name) : 'none'))
+      .attr('fill', (d) => (d.data.isLeaf ? fillForNode(d, d.data.name) : 'none'))
       .attr('data-group', (d) => d.data.name)
       .on('click', (_, d) => {
         setZoomPath([...zoomPath, d.data.name])
@@ -244,30 +206,12 @@ const useTreemap = (
       })
       .on('mousemove', (event, d) => {
         const label = [...zoomPath, d.data.name].filter(Boolean)
-        if (mode === 'porting' || mode === 'adaptation' || mode === 'notes') {
-          const loc = d.data.loc ?? 0
-          const notes = noteValueForMode(d.data)
-          const notesLabel = mode === 'adaptation' ? 'adaptation notes'
-            : mode === 'notes' ? 'notes total'
-              : 'porting notes'
-          setTooltip(event, label, notes, notesLabel)
-          if (tooltip) {
-            tooltip.textContent = `${label.join(' / ')} · ${formatter.format(notes)} ${notesLabel} · ${formatter.format(loc)} loc`
-          }
-          return
+        const sizeValue = d.data ? valueForSeries(d.data, sizeSeries) : d.value ?? 0
+        const colorValue = d.data ? valueForSeries(d.data, colorSeries) : 0
+        setTooltip(event, label, sizeValue, labelSuffix)
+        if (tooltip) {
+          tooltip.textContent = `${label.join(' / ')} · ${formatter.format(sizeValue)} ${labelSuffix} · ${formatter.format(colorValue)} ${colorSeries.replace(/_/g, ' ')}`
         }
-        if (mode === 'comments') {
-          const comments = d.data.commentLines ?? 0
-          const code = d.data.codeLines ?? 0
-          const ratio = code > 0 ? (comments / code) : 0
-          setTooltip(event, label, comments, 'comment lines')
-          if (tooltip) {
-            tooltip.textContent = `${label.join(' / ')} · ${formatter.format(comments)} comment lines · ${formatter.format(code)} code lines · ${(ratio * 100).toFixed(1)}%`
-          }
-          return
-        }
-        const value = d.data ? valueForMode(d.data) : d.value ?? 0
-        setTooltip(event, label, value, labelSuffix)
       })
       .on('mouseout', function () {
         d3.select(this).classed('is-hovered', false)
@@ -291,7 +235,7 @@ const useTreemap = (
       .attr('class', 'treemap-rect treemap-child')
       .classed('is-leaf', (d) => !!d.data.isLeaf)
       .classed('is-folder', (d) => !d.data.isLeaf)
-      .attr('fill', (d) => fillForNode(d.data, d.parent?.data.name ?? ''))
+      .attr('fill', (d) => fillForNode(d, d.parent?.data.name ?? ''))
       .attr('data-group', (d) => d.parent?.data.name ?? '')
       .on('click', (_, d) => {
         const parent = d.parent?.data.name
@@ -302,30 +246,12 @@ const useTreemap = (
       .on('mousemove', (event, d) => {
         const parent = d.parent?.data.name ?? ''
         const label = [...zoomPath, parent, d.data.name].filter(Boolean)
-        if (mode === 'porting' || mode === 'adaptation' || mode === 'notes') {
-          const loc = d.data.loc ?? 0
-          const notes = noteValueForMode(d.data)
-          const notesLabel = mode === 'adaptation' ? 'adaptation notes'
-            : mode === 'notes' ? 'notes total'
-              : 'porting notes'
-          setTooltip(event, label, notes, notesLabel)
-          if (tooltip) {
-            tooltip.textContent = `${label.join(' / ')} · ${formatter.format(notes)} ${notesLabel} · ${formatter.format(loc)} loc`
-          }
-          return
+        const sizeValue = d.data ? valueForSeries(d.data, sizeSeries) : d.value ?? 0
+        const colorValue = d.data ? valueForSeries(d.data, colorSeries) : 0
+        setTooltip(event, label, sizeValue, labelSuffix)
+        if (tooltip) {
+          tooltip.textContent = `${label.join(' / ')} · ${formatter.format(sizeValue)} ${labelSuffix} · ${formatter.format(colorValue)} ${colorSeries.replace(/_/g, ' ')}`
         }
-        if (mode === 'comments') {
-          const comments = d.data.commentLines ?? 0
-          const code = d.data.codeLines ?? 0
-          const ratio = code > 0 ? (comments / code) : 0
-          setTooltip(event, label, comments, 'comment lines')
-          if (tooltip) {
-            tooltip.textContent = `${label.join(' / ')} · ${formatter.format(comments)} comment lines · ${formatter.format(code)} code lines · ${(ratio * 100).toFixed(1)}%`
-          }
-          return
-        }
-        const value = d.data ? valueForMode(d.data) : d.value ?? 0
-        setTooltip(event, label, value, labelSuffix)
       })
       .on('mouseover', function () {
         d3.select(this).classed('is-hovered', true)
@@ -337,7 +263,7 @@ const useTreemap = (
 
     nodes
       .append('clipPath')
-      .attr('id', (_, i) => `treemap-clip-${mode}-${i}`)
+      .attr('id', (_, i) => `treemap-clip-${sizeSeries}-${i}`)
       .append('rect')
       .attr('x', (d) => d.x0 + 2)
       .attr('y', (d) => d.y0 + 2)
@@ -349,7 +275,7 @@ const useTreemap = (
       .attr('x', (d) => d.x0 + 6)
       .attr('y', (d) => d.y0 + 16)
       .attr('class', 'treemap-label')
-      .attr('clip-path', (_, i) => `url(#treemap-clip-${mode}-${i})`)
+      .attr('clip-path', (_, i) => `url(#treemap-clip-${sizeSeries}-${i})`)
       .text((d) => d.data.name)
       .style('display', 'block')
 
@@ -363,17 +289,39 @@ const useTreemap = (
     return () => {
       container.innerHTML = ''
     }
-  }, [containerRef, data, mode, zoomPath, setZoomPath, colors, hoveredGroup, tooltipRef, portingScale, commentScale])
+  }, [
+    containerRef,
+    data,
+    sizeSeries,
+    colorSeries,
+    colorMode,
+    zoomPath,
+    setZoomPath,
+    colors,
+    hoveredGroup,
+    tooltipRef,
+    portingScale,
+  ])
 }
 
 export const MathlibPage = () => {
   const { mode, setMode, theme } = useThemeMode()
   const treemapRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
-  const [activeView, setActiveView] = useState<TreemapMode>('size')
+  const rawData = treemapData as unknown as TreemapData
+  const defaultData = useMemo<TreemapNode>(() => (
+    rawData.root ?? (treemapData as unknown as TreemapNode)
+  ), [rawData])
+  const defaultSeriesKeys = useMemo<string[]>(() => (
+    rawData.seriesKeys ?? []
+  ), [rawData.seriesKeys])
+  const [data, setData] = useState<TreemapNode>(defaultData)
+  const [seriesKeys, setSeriesKeys] = useState<string[]>(defaultSeriesKeys)
+  const [sizeSeries, setSizeSeries] = useState<string>('loc')
+  const [colorSeries, setColorSeries] = useState<string>('porting_notes')
+  const [colorMode, setColorMode] = useState<ColorMode>('absolute')
   const [zoomPath, setZoomPath] = useState<string[]>([])
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null)
-  const data = useMemo(() => treemapData as TreemapNode, [])
   const pastel = [
     '#ffd8be',
     '#cde7f0',
@@ -404,28 +352,97 @@ export const MathlibPage = () => {
   ]
   const palette = theme === 'reticle' ? pastelDark : pastel
   const portingScale = theme === 'reticle'
-    ? { low: '#1e2a31', high: '#7a3b44' }
-    : { low: '#f6f0d4', high: '#c55b63' }
-  const commentScale = theme === 'reticle'
-    ? { low: '#25313a', high: '#4f6a63' }
-    : { low: '#eaf7ea', high: '#7bbf9a' }
+    ? { low: '#c9773a', high: '#3d7cc8' }
+    : { low: '#e38c4a', high: '#2d72c4' }
 
   useTreemap(
     treemapRef,
     data,
-    activeView,
+    sizeSeries,
+    colorSeries,
+    colorMode,
     zoomPath,
     setZoomPath,
     palette,
     hoveredGroup,
     tooltipRef,
     portingScale,
-    commentScale,
   )
 
   useEffect(() => {
     setHoveredGroup(null)
   }, [zoomPath])
+
+  useEffect(() => {
+    if (seriesKeys.length > 0) {
+      setSizeSeries((current) => (seriesKeys.includes(current) ? current : (seriesKeys.includes('loc') ? 'loc' : seriesKeys[0])))
+      setColorSeries((current) => (seriesKeys.includes(current) ? current : (seriesKeys.includes('porting_notes') ? 'porting_notes' : seriesKeys[0])))
+    }
+  }, [seriesKeys])
+
+  const buildTreeFromEntries = (entries: UploadedEntry[]): TreemapNode => {
+    const rootNode: TreemapNode = { name: 'Root', series: {}, children: [] }
+    const index = new Map<string, TreemapNode>()
+    index.set('', rootNode)
+    for (const entry of entries) {
+      const parts = entry.path.split('/').filter(Boolean)
+      let currentPath = ''
+      let current = rootNode
+      parts.forEach((part, idx) => {
+        currentPath = currentPath ? `${currentPath}/${part}` : part
+        let child = index.get(currentPath)
+        if (!child) {
+          child = { name: part, series: {}, children: [] }
+          current.children = current.children ?? []
+          current.children.push(child)
+          index.set(currentPath, child)
+        }
+        if (idx === parts.length - 1) {
+          child.series = entry.series
+        }
+        current = child
+      })
+    }
+    return rootNode
+  }
+
+  const handleUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result ?? '{}')) as UploadedData
+        if (parsed.root) {
+          setData(parsed.root)
+          setSeriesKeys(parsed.seriesKeys ?? Object.keys(parsed.root.series ?? {}))
+          return
+        }
+        if (parsed.entries) {
+          const built = buildTreeFromEntries(parsed.entries)
+          setData(built)
+          const keys = new Set<string>()
+          parsed.entries.forEach((entry) => {
+            Object.keys(entry.series ?? {}).forEach((key) => keys.add(key))
+          })
+          setSeriesKeys(Array.from(keys))
+        }
+      } catch (error) {
+        console.error('Failed to load JSON', error)
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  const handleReset = () => {
+    setData(defaultData)
+    setSeriesKeys(defaultSeriesKeys)
+    setSizeSeries(defaultSeriesKeys.includes('loc') ? 'loc' : (defaultSeriesKeys[0] ?? 'loc'))
+    setColorSeries(defaultSeriesKeys.includes('porting_notes') ? 'porting_notes' : (defaultSeriesKeys[0] ?? 'porting_notes'))
+    setColorMode('absolute')
+  }
 
   return (
     <div className={`page theme-${theme}`}>
@@ -444,42 +461,49 @@ export const MathlibPage = () => {
           </div>
         </div>
         <div className="treemap-menu">
-          <button
-            className={`ghost-button ${activeView === 'size' ? 'active' : ''}`}
-            onClick={() => setActiveView('size')}
-          >
-            BYTES
+          <label className="treemap-select">
+            <span>DATA</span>
+            <input type="file" accept="application/json" onChange={handleUpload} />
+          </label>
+          <button className="ghost-button" onClick={handleReset}>
+            RESET DEFAULT
           </button>
-          <button
-            className={`ghost-button ${activeView === 'count' ? 'active' : ''}`}
-            onClick={() => setActiveView('count')}
-          >
-            FILE COUNT
-          </button>
-          <button
-            className={`ghost-button ${activeView === 'porting' ? 'active' : ''}`}
-            onClick={() => setActiveView('porting')}
-          >
-            PORTING NOTES
-          </button>
-          <button
-            className={`ghost-button ${activeView === 'adaptation' ? 'active' : ''}`}
-            onClick={() => setActiveView('adaptation')}
-          >
-            ADAPTATION NOTES
-          </button>
-          <button
-            className={`ghost-button ${activeView === 'notes' ? 'active' : ''}`}
-            onClick={() => setActiveView('notes')}
-          >
-            NOTES TOTAL
-          </button>
-          <button
-            className={`ghost-button ${activeView === 'comments' ? 'active' : ''}`}
-            onClick={() => setActiveView('comments')}
-          >
-            COMMENT RATIO
-          </button>
+          <label className="treemap-select">
+            <span>SIZE</span>
+            <select
+              value={sizeSeries}
+              onChange={(event) => setSizeSeries(event.target.value)}
+            >
+              {seriesKeys.map((key) => (
+                <option key={key} value={key}>
+                  {key.replace(/_/g, ' ')}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="treemap-select">
+            <span>COLOR</span>
+            <select
+              value={colorSeries}
+              onChange={(event) => setColorSeries(event.target.value)}
+            >
+              {seriesKeys.map((key) => (
+                <option key={key} value={key}>
+                  {key.replace(/_/g, ' ')}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="treemap-select">
+            <span>MODE</span>
+            <select
+              value={colorMode}
+              onChange={(event) => setColorMode(event.target.value as ColorMode)}
+            >
+              <option value="absolute">absolute</option>
+              <option value="relative">relative</option>
+            </select>
+          </label>
         </div>
         <div className="treemap-separator" />
         <div className="treemap-breadcrumb">
@@ -504,6 +528,43 @@ export const MathlibPage = () => {
         </div>
       </section>
 
+      <section className="samples">
+        <div className="panel-header">
+          <div>
+            <h2>Section B · JSON format</h2>
+            <p>Load local metrics using a simple tree schema or a flat entries list.</p>
+          </div>
+        </div>
+        <div className="panel">
+          <h3>Tree schema</h3>
+          <pre className="code-block">{`{
+  "root": {
+    "name": "Demo",
+    "series": { "foo": 210, "bar": 9 },
+    "children": [
+      {
+        "name": "Core",
+        "series": { "foo": 150, "bar": 6 },
+        "children": [
+          { "name": "Basics.lean", "series": { "foo": 90, "bar": 4 } },
+          { "name": "Logic.lean", "series": { "foo": 60, "bar": 2 } }
+        ]
+      },
+      { "name": "Extras", "series": { "foo": 60, "bar": 3 } }
+    ]
+  },
+  "seriesKeys": ["foo", "bar"]
+}`}</pre>
+          <h3>Entries schema</h3>
+          <pre className="code-block">{`{
+  "entries": [
+    { "path": "Demo/Core/Basics.lean", "series": { "foo": 90, "bar": 4 } },
+    { "path": "Demo/Core/Logic.lean", "series": { "foo": 60, "bar": 2 } },
+    { "path": "Demo/Extras", "series": { "foo": 60, "bar": 3 } }
+  ]
+}`}</pre>
+        </div>
+      </section>
     </div>
   )
 }
