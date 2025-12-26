@@ -224,6 +224,13 @@ const useTreemap = (
       .attr('fill', (d) => (d.data.isLeaf ? fillForNode(d, d.data.name) : 'none'))
       .attr('data-group', (d) => d.data.name)
       .on('click', (_, d) => {
+        if (d.data.isLeaf) {
+          const link = buildVscodeLink(d)
+          if (link) {
+            window.location.href = link
+            return
+          }
+        }
         setZoomPath([...zoomPath, d.data.name])
       })
       .on('mouseover', function () {
