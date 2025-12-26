@@ -13,6 +13,9 @@ theorem add_zero (n : Nat) : n + 0 = n := by
   | succ n ih =>
     simp [Nat.add_succ, ih]`)
   const [goalText, setGoalText] = useState<string>('No goals fetched yet.')
+  const [goalSnapshots, setGoalSnapshots] = useState<
+    Array<{ line: number; text: string; source: string }>
+  >([])
   const [status, setStatus] = useState<'idle' | 'pending' | 'ready' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -31,6 +34,7 @@ theorem add_zero (n : Nat) : n + 0 = n := by
   const fetchGoals = async () => {
     setStatus('pending')
     setErrorMessage(null)
+    setGoalSnapshots([])
 
     try {
       const sessionResponse = await fetch('/api/lean/session', {
@@ -65,31 +69,52 @@ theorem add_zero (n : Nat) : n + 0 = n := by
       const line = Math.max(0, lines.length - 1)
       const character = lines[line]?.length ?? 0
 
-      const goalsResponse = await fetch('/api/lean/session/goals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          uri,
-          position: { line, character },
-        }),
-      })
+      const maxSnapshots = 12
+      const snapshots: Array<{ line: number; text: string; source: string }> = []
 
-      const goalsParsed = await parseJsonSafe(goalsResponse)
-      const goalsData = goalsParsed.data as { result?: unknown; error?: string } | null
-      if (!goalsResponse.ok) {
-        throw new Error(
-          goalsData?.error ??
-          (goalsParsed.raw ||
-            `Failed to fetch goals (status ${goalsResponse.status}).`),
-        )
+      for (let index = 0; index < lines.length; index += 1) {
+        const source = lines[index]?.trim() ?? ''
+        if (!source) {
+          continue
+        }
+        if (snapshots.length >= maxSnapshots) {
+          break
+        }
+
+        const goalsResponse = await fetch('/api/lean/session/goals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            uri,
+            position: { line: index, character: lines[index]?.length ?? 0 },
+          }),
+        })
+
+        const goalsParsed = await parseJsonSafe(goalsResponse)
+        const goalsData = goalsParsed.data as { result?: unknown; error?: string } | null
+        if (!goalsResponse.ok) {
+          throw new Error(
+            goalsData?.error ??
+              (goalsParsed.raw ||
+                `Failed to fetch goals (status ${goalsResponse.status}).`),
+          )
+        }
+
+        const result = goalsData?.result
+        const text =
+          typeof result === 'string' ? result : JSON.stringify(result ?? 'No goal state', null, 2)
+
+        snapshots.push({ line: index + 1, text, source })
       }
 
-      const result = goalsData?.result
-      const text =
-        typeof result === 'string' ? result : JSON.stringify(result ?? 'No goal state', null, 2)
-
-      setGoalText(text)
+      const latest = snapshots.at(-1)
+      if (latest) {
+        setGoalText(latest.text)
+      } else {
+        setGoalText('No goals fetched yet.')
+      }
+      setGoalSnapshots(snapshots)
       setStatus('ready')
     } catch (error) {
       setStatus('error')
@@ -158,11 +183,13 @@ theorem add_zero (n : Nat) : n + 0 = n := by
               </div>
             </div>
             <ol className="tactic-list">
-              <li>intro n</li>
-              <li>induction n</li>
-              <li>case zero</li>
-              <li>case succ n ih</li>
-              <li>simp [Nat.add_succ, ih]</li>
+              {(goalSnapshots.length > 0 ? goalSnapshots : [{ line: 1, source: 'Waiting...' }]).map(
+                (snapshot, idx) => (
+                  <li key={`${snapshot.line}-${idx}`}>
+                    L{snapshot.line}: {snapshot.source ?? 'Waiting...'}
+                  </li>
+                ),
+              )}
             </ol>
           </div>
           <div className="panel">
@@ -173,20 +200,22 @@ theorem add_zero (n : Nat) : n + 0 = n := by
               </div>
             </div>
             <div className="goal-flow">
-              <div className="goal-card">
-                <p className="meta-label">GOAL 0</p>
-                <pre>{goalText}</pre>
-              </div>
-              <div className="goal-arrow">↓</div>
-              <div className="goal-card">
-                <p className="meta-label">GOAL 1</p>
-                <pre>⊢ 0 + 0 = 0</pre>
-              </div>
-              <div className="goal-arrow">↓</div>
-              <div className="goal-card">
-                <p className="meta-label">GOAL 2</p>
-                <pre>⊢ Nat.succ n + 0 = Nat.succ n</pre>
-              </div>
+              {goalSnapshots.length > 0 ? (
+                goalSnapshots.map((snapshot, idx) => (
+                  <div key={`${snapshot.line}-${idx}`}>
+                    <div className="goal-card">
+                      <p className="meta-label">GOAL {idx}</p>
+                      <pre>{snapshot.text}</pre>
+                    </div>
+                    {idx < goalSnapshots.length - 1 ? <div className="goal-arrow">↓</div> : null}
+                  </div>
+                ))
+              ) : (
+                <div className="goal-card">
+                  <p className="meta-label">GOAL</p>
+                  <pre>{goalText}</pre>
+                </div>
+              )}
             </div>
           </div>
         </div>

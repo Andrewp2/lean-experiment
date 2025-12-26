@@ -127,6 +127,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         tactics: resolve(__dirname, 'tactics.html'),
         visualizer: resolve(__dirname, 'visualizer.html'),
+        mathlib: resolve(__dirname, 'mathlib.html'),
       },
     },
   },

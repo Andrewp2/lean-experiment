@@ -84,8 +84,7 @@ function App() {
       <section className="intro">
         <h1>TR-001 · Proof Walkthrough Generator</h1>
         <p>
-          Paste a Lean proof or tactic script. The system sends the proof plus its imports to a server
-          LLM and returns a walkthrough.
+          Paste a Lean proof or tactic script. The system sends the proof to a LLM (gpt-5-nano) and returns a walkthrough.
         </p>
       </section>
 

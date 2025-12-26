@@ -354,6 +354,165 @@
   font-size: 0.85rem;
 }
 
+.treemap-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.treemap-menu {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.treemap-separator {
+  border-top: 1px solid var(--border);
+  margin: 4px 0 2px;
+}
+
+.treemap-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px 16px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-item:hover {
+  color: var(--ink);
+}
+
+.legend-swatch {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--border-strong);
+}
+
+.treemap-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.treemap-breadcrumb .ghost-button {
+  padding: 4px 8px;
+}
+
+.breadcrumb-sep {
+  color: var(--muted);
+  margin: 0 6px 0 0;
+}
+
+.treemap-panel {
+  border: 1px solid var(--border);
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+  position: relative;
+}
+
+.treemap-canvas {
+  width: 100%;
+  min-height: 840px;
+  overflow: hidden;
+}
+
+.treemap-svg {
+  display: block;
+  width: 100%;
+  height: 840px;
+  overflow: hidden;
+}
+
+.treemap-rect {
+  stroke: var(--border-strong);
+  stroke-width: 1px;
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.treemap-rect.is-leaf {
+  fill-opacity: 0.55;
+  stroke-dasharray: 3 2;
+}
+
+.treemap-rect.is-folder {
+  fill-opacity: 0.85;
+}
+
+.treemap-parent {
+  fill: none;
+  stroke-width: 1.5px;
+}
+
+.treemap-parent-label {
+  fill: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.treemap-child {
+  cursor: pointer;
+}
+
+.treemap-rect.is-hovered,
+.treemap-rect.is-group-hovered {
+  stroke: var(--fl-cyan);
+  stroke-width: 2px;
+}
+
+.treemap-rect.is-dim {
+  opacity: 0.25;
+}
+
+.treemap-label {
+  fill: var(--ink);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.treemap-tooltip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.treemap-tooltip.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.treemap-placeholder {
+  border: 1px dashed var(--border);
+  padding: 24px;
+}
+
 .theme-reticle .table-head {
   background: #0a0a0a;
 }
@@ -380,6 +539,11 @@
 .theme-reticle .primary-button {
   border-color: #666666;
   color: #ffffff;
+}
+
+.theme-reticle .ghost-button.active {
+  border-color: var(--fl-cyan);
+  color: var(--fl-cyan);
 }
 
 .theme-reticle .site-header {
@@ -413,6 +577,20 @@
 .theme-reticle .goal-card,
 .theme-reticle .dependency-node {
   border-color: #333333;
+}
+
+.theme-reticle .treemap-panel {
+  border-color: #333333;
+}
+
+.theme-reticle .treemap-rect {
+  stroke: #333333;
+}
+
+.theme-reticle .treemap-rect.is-hovered,
+.theme-reticle .treemap-rect.is-group-hovered {
+  stroke: var(--fl-cyan);
+  stroke-width: 2px;
 }
 
 .theme-toggle .ghost-button.active {
