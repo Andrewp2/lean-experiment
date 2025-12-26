@@ -266,7 +266,7 @@ export const MathlibPage = () => {
     '#3e4a2a',
     '#57412a',
   ]
-  const palette = mode === 'dark' ? pastelDark : pastel
+  const palette = theme === 'reticle' ? pastelDark : pastel
 
   useTreemap(treemapRef, data, activeView, zoomPath, setZoomPath, palette, hoveredGroup, tooltipRef)
 
