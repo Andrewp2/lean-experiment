@@ -238,21 +238,6 @@ export const MathlibPage = () => {
   const [zoomPath, setZoomPath] = useState<string[]>([])
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null)
   const data = useMemo(() => treemapData as TreemapNode, [])
-  const findNode = (node: TreemapNode, path: string[]) => {
-    let current: TreemapNode = node
-    for (const segment of path) {
-      const next = current.children?.find((child) => child.name === segment)
-      if (!next) {
-        return current
-      }
-      current = next
-    }
-    return current
-  }
-  const currentTopNames = useMemo(() => {
-    const node = findNode(data, zoomPath)
-    return (node.children ?? []).map((child) => child.name)
-  }, [data, zoomPath])
   const pastel = [
     '#ffd8be',
     '#cde7f0',
@@ -336,21 +321,6 @@ export const MathlibPage = () => {
             )
           })}
         </div>
-        {/*
-        <div className="treemap-legend">
-          {currentTopNames.map((name) => (
-            <div
-              key={name}
-              className="legend-item"
-              onMouseEnter={() => setHoveredGroup(name)}
-              onMouseLeave={() => setHoveredGroup(null)}
-            >
-              <span className="legend-swatch" style={{ background: colorForName(name) }} />
-              <span>{name}</span>
-            </div>
-          ))}
-        </div>
-        */}
         <div className="treemap-panel">
           <div className="treemap-canvas" ref={treemapRef} />
           <div className="treemap-tooltip" ref={tooltipRef} />
