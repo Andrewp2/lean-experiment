@@ -89,7 +89,7 @@ const useTreemap = (
     } as TreemapNode)
 
     displayRoot.sum((d) => (mode === 'count' ? d.count ?? 0 : d.value ?? 0))
-    d3
+    const tiledRoot = d3
       .treemap<TreemapNode>()
       .size([width, height])
       .paddingOuter(2)
@@ -129,8 +129,8 @@ const useTreemap = (
 
     const labelSuffix = mode === 'count' ? 'files' : 'bytes'
 
-    const parentNodes = displayRoot.descendants().filter((d) => d.depth === 1)
-    const childNodes = displayRoot.descendants().filter((d) => d.depth === 2)
+    const parentNodes = tiledRoot.descendants().filter((d) => d.depth === 1)
+    const childNodes = tiledRoot.descendants().filter((d) => d.depth === 2)
 
     const parents = svg.selectAll('g.parent').data(parentNodes).enter().append('g').attr('class', 'parent')
     parents
@@ -282,13 +282,6 @@ export const MathlibPage = () => {
     '#57412a',
   ]
   const palette = mode === 'dark' ? pastelDark : pastel
-  const colorIndexByName = useMemo(() => {
-    return new Map(currentTopNames.map((name, index) => [name, index]))
-  }, [currentTopNames])
-  const colorForName = (name: string) => {
-    const index = colorIndexByName.get(name) ?? 0
-    return palette[index % palette.length]
-  }
 
   useTreemap(treemapRef, data, activeView, zoomPath, setZoomPath, palette, hoveredGroup, tooltipRef)
 

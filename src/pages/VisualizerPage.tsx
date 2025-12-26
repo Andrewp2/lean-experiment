@@ -66,8 +66,6 @@ theorem add_zero (n : Nat) : n + 0 = n := by
       }
 
       const lines = proofInput.split('\n')
-      const line = Math.max(0, lines.length - 1)
-      const character = lines[line]?.length ?? 0
 
       const maxSnapshots = 12
       const snapshots: Array<{ line: number; text: string; source: string }> = []
