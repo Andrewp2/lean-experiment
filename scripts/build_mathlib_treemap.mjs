@@ -25,6 +25,8 @@ const root = {
   size: 0,
   count: 0,
   loc: 0,
+  commentLines: 0,
+  codeLines: 0,
   portingNotes: 0,
   adaptationNotes: 0,
   noteTotal: 0,
@@ -34,7 +36,7 @@ const sampleFiles = []
 const portingNoteRegex = /porting note/gi
 const adaptationNoteRegex = /#adaptation_note\b/gi
 
-const addFile = (relativePath, size, loc, portingNotes, adaptationNotes) => {
+const addFile = (relativePath, size, loc, commentLines, codeLines, portingNotes, adaptationNotes) => {
   const parts = relativePath.split(path.sep).filter(Boolean)
   if (parts[0] === 'Mathlib') {
     parts.shift()
@@ -51,6 +53,8 @@ const addFile = (relativePath, size, loc, portingNotes, adaptationNotes) => {
   node.size += size
   node.count += 1
   node.loc += loc
+  node.commentLines += commentLines
+  node.codeLines += codeLines
   node.portingNotes += portingNotes
   node.adaptationNotes += adaptationNotes
   node.noteTotal += portingNotes + adaptationNotes
@@ -69,6 +73,8 @@ const addFile = (relativePath, size, loc, portingNotes, adaptationNotes) => {
         size: 0,
         count: 0,
         loc: 0,
+        commentLines: 0,
+        codeLines: 0,
         portingNotes: 0,
         adaptationNotes: 0,
         noteTotal: 0,
@@ -78,6 +84,8 @@ const addFile = (relativePath, size, loc, portingNotes, adaptationNotes) => {
     child.size += size
     child.count += 1
     child.loc += loc
+    child.commentLines += commentLines
+    child.codeLines += codeLines
     child.portingNotes += portingNotes
     child.adaptationNotes += adaptationNotes
     child.noteTotal += portingNotes + adaptationNotes
@@ -94,11 +102,35 @@ const walk = (dir, baseDir) => {
     } else if (entry.isFile() && entry.name.endsWith('.lean')) {
       const stats = fs.statSync(fullPath)
       const content = fs.readFileSync(fullPath, 'utf8')
-      const loc = content.split(/\r\n|\r|\n/).length
+      const lines = content.split(/\r\n|\r|\n/)
+      const loc = lines.length
       const portingNotes = Array.from(content.matchAll(portingNoteRegex)).length
       const adaptationNotes = Array.from(content.matchAll(adaptationNoteRegex)).length
+      let commentLines = 0
+      let inBlock = false
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (inBlock) {
+          commentLines += 1
+          if (trimmed.includes('-/')) {
+            inBlock = false
+          }
+          continue
+        }
+        if (trimmed.startsWith('--')) {
+          commentLines += 1
+          continue
+        }
+        if (trimmed.includes('/-')) {
+          commentLines += 1
+          if (!trimmed.includes('-/')) {
+            inBlock = true
+          }
+        }
+      }
+      const codeLines = Math.max(0, loc - commentLines)
       const relativePath = path.relative(baseDir, fullPath)
-      addFile(relativePath, stats.size, loc, portingNotes, adaptationNotes)
+      addFile(relativePath, stats.size, loc, commentLines, codeLines, portingNotes, adaptationNotes)
     }
   }
 }
@@ -129,6 +161,20 @@ const sumLoc = (node) => {
     return node.loc
   }
   return (node.children ?? []).reduce((sum, child) => sum + sumLoc(child), 0)
+}
+
+const sumCommentLines = (node) => {
+  if (typeof node.commentLines === 'number') {
+    return node.commentLines
+  }
+  return (node.children ?? []).reduce((sum, child) => sum + sumCommentLines(child), 0)
+}
+
+const sumCodeLines = (node) => {
+  if (typeof node.codeLines === 'number') {
+    return node.codeLines
+  }
+  return (node.children ?? []).reduce((sum, child) => sum + sumCodeLines(child), 0)
 }
 
 const sumPortingNotes = (node) => {
@@ -185,6 +231,8 @@ const normalizeNode = (node) => {
     value: otherChildren.reduce((sum, child) => sum + sumValue(child), 0),
     count: otherChildren.reduce((sum, child) => sum + sumCount(child), 0),
     loc: otherChildren.reduce((sum, child) => sum + sumLoc(child), 0),
+    commentLines: otherChildren.reduce((sum, child) => sum + sumCommentLines(child), 0),
+    codeLines: otherChildren.reduce((sum, child) => sum + sumCodeLines(child), 0),
     portingNotes: otherChildren.reduce((sum, child) => sum + sumPortingNotes(child), 0),
     adaptationNotes: otherChildren.reduce((sum, child) => sum + sumAdaptationNotes(child), 0),
     noteTotal: otherChildren.reduce((sum, child) => sum + sumNoteTotal(child), 0),
@@ -201,6 +249,8 @@ const toJson = (node) => {
       value: node.size,
       count: node.count,
       loc: node.loc,
+      commentLines: node.commentLines,
+      codeLines: node.codeLines,
       portingNotes: node.portingNotes,
       adaptationNotes: node.adaptationNotes,
       noteTotal: node.noteTotal,
@@ -213,6 +263,8 @@ const toJson = (node) => {
     value: node.size,
     count: node.count,
     loc: node.loc,
+    commentLines: node.commentLines,
+    codeLines: node.codeLines,
     portingNotes: node.portingNotes,
     adaptationNotes: node.adaptationNotes,
     noteTotal: node.noteTotal,

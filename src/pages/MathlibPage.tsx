@@ -10,6 +10,8 @@ type TreemapNode = {
   value?: number
   count?: number
   loc?: number
+  commentLines?: number
+  codeLines?: number
   portingNotes?: number
   adaptationNotes?: number
   noteTotal?: number
@@ -17,7 +19,7 @@ type TreemapNode = {
   isLeaf?: boolean
 }
 
-type TreemapMode = 'size' | 'count' | 'porting' | 'adaptation' | 'notes'
+type TreemapMode = 'size' | 'count' | 'porting' | 'adaptation' | 'notes' | 'comments'
 type PortingScale = { low: string; high: string }
 
 const useTreemap = (
@@ -30,6 +32,7 @@ const useTreemap = (
   hoveredGroup: string | null,
   tooltipRef: React.RefObject<HTMLDivElement>,
   portingScale: PortingScale,
+  commentScale: PortingScale,
 ) => {
   useEffect(() => {
     const container = containerRef.current
@@ -55,7 +58,7 @@ const useTreemap = (
       if (mode === 'count') {
         return node.count ?? 0
       }
-      if (mode === 'porting' || mode === 'adaptation' || mode === 'notes') {
+      if (mode === 'porting' || mode === 'adaptation' || mode === 'notes' || mode === 'comments') {
         return node.loc ?? 0
       }
       return node.value ?? 0
@@ -79,8 +82,7 @@ const useTreemap = (
     }
 
     const zoomRoot = findNode(root, zoomPath)
-    const topLevel = zoomRoot.children ?? []
-
+    const noteMode = mode === 'porting' || mode === 'adaptation' || mode === 'notes'
     const noteValueForMode = (node: TreemapNode) => {
       if (mode === 'adaptation') {
         return node.adaptationNotes ?? 0
@@ -90,6 +92,23 @@ const useTreemap = (
       }
       return node.portingNotes ?? 0
     }
+    const commentRatio = (node: TreemapNode) => {
+      const comments = node.commentLines ?? 0
+      const code = node.codeLines ?? 0
+      if (comments + code === 0) {
+        return 0
+      }
+      return comments / Math.max(1, code)
+    }
+
+    const topLevel = (zoomRoot.children ?? [])
+      .filter((child) => (noteMode ? noteValueForMode(child.data) > 0 : true))
+      .sort((a, b) => {
+        if (noteMode) {
+          return noteValueForMode(b.data) - noteValueForMode(a.data)
+        }
+        return (b.value ?? 0) - (a.value ?? 0)
+      })
 
     const displayRoot = d3.hierarchy({
       name: zoomRoot.data.name,
@@ -101,19 +120,32 @@ const useTreemap = (
             value: child.data.value ?? 0,
             count: child.data.count ?? 0,
             loc: child.data.loc ?? 0,
+            commentLines: child.data.commentLines ?? 0,
+            codeLines: child.data.codeLines ?? 0,
             portingNotes: child.data.portingNotes ?? 0,
             adaptationNotes: child.data.adaptationNotes ?? 0,
             noteTotal: child.data.noteTotal ?? 0,
             isLeaf: true,
           }
         }
+        const filteredGrandChildren = (noteMode
+          ? grandChildren.filter((g) => noteValueForMode(g.data) > 0)
+          : grandChildren
+        ).sort((a, b) => {
+          if (noteMode) {
+            return noteValueForMode(b.data) - noteValueForMode(a.data)
+          }
+          return (b.value ?? 0) - (a.value ?? 0)
+        })
         return {
           name: child.data.name,
-          children: grandChildren.map((g) => ({
+          children: filteredGrandChildren.map((g) => ({
             name: g.data.name,
             value: g.data.value ?? 0,
             count: g.data.count ?? 0,
             loc: g.data.loc ?? 0,
+            commentLines: g.data.commentLines ?? 0,
+            codeLines: g.data.codeLines ?? 0,
             portingNotes: g.data.portingNotes ?? 0,
             adaptationNotes: g.data.adaptationNotes ?? 0,
             noteTotal: g.data.noteTotal ?? 0,
@@ -144,10 +176,18 @@ const useTreemap = (
       .scaleLinear<string>()
       .domain([0, portingMax || 1])
       .range([portingScale.low, portingScale.high])
+    const commentMax = Math.max(0, ...topLevel.map((child) => commentRatio(child.data)))
+    const commentScaleFn = d3
+      .scaleLinear<string>()
+      .domain([0, commentMax || 1])
+      .range([commentScale.low, commentScale.high])
 
     const fillForNode = (node: TreemapNode, fallbackName: string) => {
       if (mode === 'porting' || mode === 'adaptation' || mode === 'notes') {
         return portingScaleFn(noteValueForMode(node))
+      }
+      if (mode === 'comments') {
+        return commentScaleFn(commentRatio(node))
       }
       return color(fallbackName)
     }
@@ -175,7 +215,11 @@ const useTreemap = (
       tooltip.classList.remove('is-visible')
     }
 
-    const labelSuffix = mode === 'count' ? 'files' : (mode === 'porting' || mode === 'adaptation' || mode === 'notes') ? 'loc' : 'bytes'
+    const labelSuffix = mode === 'count'
+      ? 'files'
+      : (mode === 'porting' || mode === 'adaptation' || mode === 'notes' || mode === 'comments')
+        ? 'loc'
+        : 'bytes'
 
     const parentNodes = tiledRoot.descendants().filter((d) => d.depth === 1)
     const childNodes = tiledRoot.descendants().filter((d) => d.depth === 2)
@@ -209,6 +253,16 @@ const useTreemap = (
           setTooltip(event, label, notes, notesLabel)
           if (tooltip) {
             tooltip.textContent = `${label.join(' / ')} · ${formatter.format(notes)} ${notesLabel} · ${formatter.format(loc)} loc`
+          }
+          return
+        }
+        if (mode === 'comments') {
+          const comments = d.data.commentLines ?? 0
+          const code = d.data.codeLines ?? 0
+          const ratio = code > 0 ? (comments / code) : 0
+          setTooltip(event, label, comments, 'comment lines')
+          if (tooltip) {
+            tooltip.textContent = `${label.join(' / ')} · ${formatter.format(comments)} comment lines · ${formatter.format(code)} code lines · ${(ratio * 100).toFixed(1)}%`
           }
           return
         }
@@ -260,6 +314,16 @@ const useTreemap = (
           }
           return
         }
+        if (mode === 'comments') {
+          const comments = d.data.commentLines ?? 0
+          const code = d.data.codeLines ?? 0
+          const ratio = code > 0 ? (comments / code) : 0
+          setTooltip(event, label, comments, 'comment lines')
+          if (tooltip) {
+            tooltip.textContent = `${label.join(' / ')} · ${formatter.format(comments)} comment lines · ${formatter.format(code)} code lines · ${(ratio * 100).toFixed(1)}%`
+          }
+          return
+        }
         const value = d.data ? valueForMode(d.data) : d.value ?? 0
         setTooltip(event, label, value, labelSuffix)
       })
@@ -299,7 +363,7 @@ const useTreemap = (
     return () => {
       container.innerHTML = ''
     }
-  }, [containerRef, data, mode, zoomPath, setZoomPath, colors, hoveredGroup, tooltipRef, portingScale])
+  }, [containerRef, data, mode, zoomPath, setZoomPath, colors, hoveredGroup, tooltipRef, portingScale, commentScale])
 }
 
 export const MathlibPage = () => {
@@ -342,6 +406,9 @@ export const MathlibPage = () => {
   const portingScale = theme === 'reticle'
     ? { low: '#1e2a31', high: '#7a3b44' }
     : { low: '#f6f0d4', high: '#c55b63' }
+  const commentScale = theme === 'reticle'
+    ? { low: '#25313a', high: '#4f6a63' }
+    : { low: '#eaf7ea', high: '#7bbf9a' }
 
   useTreemap(
     treemapRef,
@@ -353,6 +420,7 @@ export const MathlibPage = () => {
     hoveredGroup,
     tooltipRef,
     portingScale,
+    commentScale,
   )
 
   useEffect(() => {
@@ -405,6 +473,12 @@ export const MathlibPage = () => {
             onClick={() => setActiveView('notes')}
           >
             NOTES TOTAL
+          </button>
+          <button
+            className={`ghost-button ${activeView === 'comments' ? 'active' : ''}`}
+            onClick={() => setActiveView('comments')}
+          >
+            COMMENT RATIO
           </button>
         </div>
         <div className="treemap-separator" />
