@@ -151,7 +151,7 @@
 }
 
 .code-block {
-  margin: 12px 0 20px;
+  margin: 8px 0 20px;
   border: 1px solid var(--border-strong);
   padding: 12px;
   background: #ffffff;
@@ -159,6 +159,17 @@
   font-size: 0.78rem;
   line-height: 1.45;
   white-space: pre-wrap;
+}
+
+.code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.code-block-header h3 {
+  margin: 0;
 }
 
 .theme-reticle .code-block {
@@ -381,6 +392,14 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.treemap-note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .treemap-select {

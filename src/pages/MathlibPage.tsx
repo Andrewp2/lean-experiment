@@ -32,6 +32,7 @@ const useTreemap = (
   sizeSeries: string,
   colorSeries: string,
   colorMode: ColorMode,
+  theme: 'highk' | 'reticle',
   zoomPath: string[],
   setZoomPath: (path: string[]) => void,
   colors: string[],
@@ -112,21 +113,8 @@ const useTreemap = (
       .paddingInner(3)
       .paddingTop((d) => (d.depth === 1 ? 18 : 2))(displayRoot)
 
-    const colorIndexByName = new Map(
-      topLevel.map((child, index) => [child.data.name, index]),
-    )
-    const color = (name: string) => {
-      const index = colorIndexByName.get(name) ?? 0
-      return colors[index % colors.length]
-    }
-    const colorMax = Math.max(0, ...topLevel.map((child) => valueForSeries(child.data, colorSeries)))
-    const portingScaleFn = d3
-      .scaleLinear<string>()
-      .domain([0, colorMax || 1])
-      .range([portingScale.low, portingScale.high])
-
     const relativeValue = (
-      node: d3.HierarchyRectangularNode<TreemapNode>,
+      node: d3.HierarchyNode<TreemapNode>,
     ) => {
       const parent = node.parent
       if (!parent?.children?.length) {
@@ -142,6 +130,26 @@ const useTreemap = (
       return valueForSeries(node.data, colorSeries) / total
     }
 
+    const colorIndexByName = new Map(
+      topLevel.map((child, index) => [child.data.name, index]),
+    )
+    const color = (name: string) => {
+      const index = colorIndexByName.get(name) ?? 0
+      return colors[index % colors.length]
+    }
+    const colorMax = Math.max(
+      0,
+      ...topLevel.map((child) => (
+        colorMode === 'relative'
+          ? relativeValue(child)
+          : valueForSeries(child.data, colorSeries)
+      )),
+    )
+    const portingScaleFn = d3
+      .scaleLinear<string>()
+      .domain([0, colorMax || 1])
+      .range([portingScale.low, portingScale.high])
+
     const fillForNode = (
       node: d3.HierarchyRectangularNode<TreemapNode>,
       fallbackName: string,
@@ -150,7 +158,7 @@ const useTreemap = (
         ? relativeValue(node)
         : valueForSeries(node.data, colorSeries)
       if (seriesValue <= 0) {
-        return '#000000'
+        return theme === 'reticle' ? '#000000' : '#ffffff'
       }
       if (!Number.isFinite(seriesValue)) {
         return color(fallbackName)
@@ -295,6 +303,7 @@ const useTreemap = (
     sizeSeries,
     colorSeries,
     colorMode,
+    theme,
     zoomPath,
     setZoomPath,
     colors,
@@ -352,8 +361,8 @@ export const MathlibPage = () => {
   ]
   const palette = theme === 'reticle' ? pastelDark : pastel
   const portingScale = theme === 'reticle'
-    ? { low: '#c9773a', high: '#3d7cc8' }
-    : { low: '#e38c4a', high: '#2d72c4' }
+    ? { low: '#3d7cc8', high: '#c9773a' }
+    : { low: '#2d72c4', high: '#e38c4a' }
 
   useTreemap(
     treemapRef,
@@ -361,6 +370,7 @@ export const MathlibPage = () => {
     sizeSeries,
     colorSeries,
     colorMode,
+    theme,
     zoomPath,
     setZoomPath,
     palette,
@@ -381,7 +391,8 @@ export const MathlibPage = () => {
   }, [seriesKeys])
 
   const buildTreeFromEntries = (entries: UploadedEntry[]): TreemapNode => {
-    const rootNode: TreemapNode = { name: 'Root', series: {}, children: [] }
+    const rootName = entries[0]?.path.split('/').filter(Boolean)[0] ?? 'Root'
+    const rootNode: TreemapNode = { name: rootName, series: {}, children: [] }
     const index = new Map<string, TreemapNode>()
     index.set('', rootNode)
     for (const entry of entries) {
@@ -403,6 +414,10 @@ export const MathlibPage = () => {
         current = child
       })
     }
+    const children = rootNode.children ?? []
+    if (children.length === 1 && Object.keys(rootNode.series ?? {}).length === 0) {
+      return children[0]
+    }
     return rootNode
   }
 
@@ -417,12 +432,14 @@ export const MathlibPage = () => {
         const parsed = JSON.parse(String(reader.result ?? '{}')) as UploadedData
         if (parsed.root) {
           setData(parsed.root)
+          setZoomPath([])
           setSeriesKeys(parsed.seriesKeys ?? Object.keys(parsed.root.series ?? {}))
           return
         }
         if (parsed.entries) {
           const built = buildTreeFromEntries(parsed.entries)
           setData(built)
+          setZoomPath([])
           const keys = new Set<string>()
           parsed.entries.forEach((entry) => {
             Object.keys(entry.series ?? {}).forEach((key) => keys.add(key))
@@ -442,6 +459,7 @@ export const MathlibPage = () => {
     setSizeSeries(defaultSeriesKeys.includes('loc') ? 'loc' : (defaultSeriesKeys[0] ?? 'loc'))
     setColorSeries(defaultSeriesKeys.includes('porting_notes') ? 'porting_notes' : (defaultSeriesKeys[0] ?? 'porting_notes'))
     setColorMode('absolute')
+    setZoomPath([])
   }
 
   return (
@@ -459,6 +477,12 @@ export const MathlibPage = () => {
             <h2>Section A · Module coverage</h2>
             <p>Distribution of files and definitions across Mathlib.</p>
           </div>
+        </div>
+        <div className="panel">
+          <p className="treemap-note">
+            Coloring: blue → low, orange → high. Zero values are black in dark mode and white in light mode.
+            Relative mode normalizes within siblings; absolute mode uses raw values.
+          </p>
         </div>
         <div className="treemap-menu">
           <label className="treemap-select">
@@ -508,7 +532,7 @@ export const MathlibPage = () => {
         <div className="treemap-separator" />
         <div className="treemap-breadcrumb">
           <button className="ghost-button" onClick={() => setZoomPath([])}>
-            MATHLIB
+            {data.name?.toUpperCase?.() ?? 'ROOT'}
           </button>
           {zoomPath.map((segment, index) => {
             const nextPath = zoomPath.slice(0, index + 1)
@@ -536,7 +560,34 @@ export const MathlibPage = () => {
           </div>
         </div>
         <div className="panel">
-          <h3>Tree schema</h3>
+          <div className="code-block-header">
+            <h3>Tree schema</h3>
+            <button
+              className="ghost-button"
+              onClick={() => {
+                void navigator.clipboard.writeText(`{
+  "root": {
+    "name": "Demo",
+    "series": { "foo": 210, "bar": 9 },
+    "children": [
+      {
+        "name": "Core",
+        "series": { "foo": 150, "bar": 6 },
+        "children": [
+          { "name": "Basics.lean", "series": { "foo": 90, "bar": 4 } },
+          { "name": "Logic.lean", "series": { "foo": 60, "bar": 2 } }
+        ]
+      },
+      { "name": "Extras", "series": { "foo": 60, "bar": 3 } }
+    ]
+  },
+  "seriesKeys": ["foo", "bar"]
+}`)
+              }}
+            >
+              COPY
+            </button>
+          </div>
           <pre className="code-block">{`{
   "root": {
     "name": "Demo",
@@ -555,7 +606,23 @@ export const MathlibPage = () => {
   },
   "seriesKeys": ["foo", "bar"]
 }`}</pre>
-          <h3>Entries schema</h3>
+          <div className="code-block-header">
+            <h3>Entries schema</h3>
+            <button
+              className="ghost-button"
+              onClick={() => {
+                void navigator.clipboard.writeText(`{
+  "entries": [
+    { "path": "Demo/Core/Basics.lean", "series": { "foo": 90, "bar": 4 } },
+    { "path": "Demo/Core/Logic.lean", "series": { "foo": 60, "bar": 2 } },
+    { "path": "Demo/Extras", "series": { "foo": 60, "bar": 3 } }
+  ]
+}`)
+              }}
+            >
+              COPY
+            </button>
+          </div>
           <pre className="code-block">{`{
   "entries": [
     { "path": "Demo/Core/Basics.lean", "series": { "foo": 90, "bar": 4 } },
