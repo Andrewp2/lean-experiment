@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 const getEnv = (name: string) => process.env[name] ?? ''
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export const proxyToLean = async (req: VercelRequest, res: VercelResponse, path: string) => {
   const baseUrl = getEnv('LEAN_BRIDGE_URL')
   const token = getEnv('LEAN_BRIDGE_TOKEN')
 
@@ -15,12 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const queryPath = Array.isArray(req.query.path) ? req.query.path.join('/') : req.query.path
-  const urlPath =
-    typeof queryPath === 'string' && queryPath.length > 0
-      ? queryPath
-      : req.url?.replace(/^\/api\/lean\/?/, '').split('?')[0] ?? ''
-  const url = `${baseUrl.replace(/\/$/, '')}/${urlPath}`
+  const url = `${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
 
   try {
     const upstream = await fetch(url, {
