@@ -1,0 +1,1 @@
+{"main-dialog":{"identifier":"main-dialog","description":"Allow the main window to open system dialogs.","local":true,"windows":["main"],"permissions":["core:default","dialog:allow-open"]}}

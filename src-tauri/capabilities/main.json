@@ -1,0 +1,6 @@
+{
+  "identifier": "main-dialog",
+  "description": "Allow the main window to open system dialogs.",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:allow-open"]
+}
