@@ -670,7 +670,6 @@ export const MathlibPage = () => {
     }
     window.alert(message)
   }
-
   const openVscodeLink = async (link: string) => {
     if (isTauri) {
       try {
