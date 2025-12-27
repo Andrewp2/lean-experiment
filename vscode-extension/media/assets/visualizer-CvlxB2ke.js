@@ -1,4 +1,4 @@
-import{u as z,r as c,j as e,S as J,c as L}from"./index-CmsUpJRH.js";const A=()=>{const{mode:P,setMode:R,theme:k}=z(),[h,I]=c.useState(`import Mathlib
+import{u as z,r as c,j as e,S as J,c as L}from"./index-D13IQ1j3.js";const A=()=>{const{mode:P,setMode:R,theme:k}=z(),[h,I]=c.useState(`import Mathlib
 
 theorem add_zero (n : Nat) : n + 0 = n := by
   induction n with

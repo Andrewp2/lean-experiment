@@ -1,4 +1,4 @@
-import{r as o,u as z,j as n,S as j,c as R}from"./index-CmsUpJRH.js";const B=`theorem add_zero (n : Nat) : n + 0 = n := by
+import{r as o,u as z,j as n,S as j,c as R}from"./index-D13IQ1j3.js";const B=`theorem add_zero (n : Nat) : n + 0 = n := by
   induction n with
   | zero => rfl
   | succ n ih =>

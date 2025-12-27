@@ -36,6 +36,11 @@ struct TreemapOutput {
 }
 
 #[derive(Serialize, Clone)]
+struct RebuildStatus {
+    status: String,
+}
+
+#[derive(Serialize, Clone)]
 struct TreemapNode {
     name: String,
     path: String,
@@ -57,6 +62,22 @@ struct BuildNode {
     porting_notes: u64,
     adaptation_notes: u64,
     note_total: u64,
+    regex_counts: HashMap<String, u64>,
+}
+
+struct RegexPattern {
+    key: String,
+    regex: Regex,
+}
+
+struct FileMetrics {
+    loc: u64,
+    comment_lines: u64,
+    code_lines: u64,
+    porting_notes: u64,
+    adaptation_notes: u64,
+    note_total: u64,
+    regex_counts: HashMap<String, u64>,
 }
 
 fn make_root_node() -> BuildNode {
@@ -72,6 +93,7 @@ fn make_root_node() -> BuildNode {
         porting_notes: 0,
         adaptation_notes: 0,
         note_total: 0,
+        regex_counts: HashMap::new(),
     }
 }
 
@@ -79,11 +101,17 @@ fn analyze_lean_content(
     content: &str,
     porting_note_regex: &Regex,
     adaptation_note_regex: &Regex,
-) -> (u64, u64, u64, u64, u64, u64) {
+    regex_patterns: &[RegexPattern],
+) -> FileMetrics {
     let lines: Vec<&str> = content.lines().collect();
     let loc = lines.len() as u64;
     let porting_notes = porting_note_regex.find_iter(content).count() as u64;
     let adaptation_notes = adaptation_note_regex.find_iter(content).count() as u64;
+    let mut regex_counts = HashMap::new();
+    for pattern in regex_patterns {
+        let count = pattern.regex.find_iter(content).count() as u64;
+        regex_counts.insert(pattern.key.clone(), count);
+    }
     let mut comment_lines = 0;
     let mut in_block = false;
     for line in &lines {
@@ -108,21 +136,22 @@ fn analyze_lean_content(
     }
     let code_lines = loc.saturating_sub(comment_lines);
     let note_total = porting_notes + adaptation_notes;
-    (
+    FileMetrics {
         loc,
         comment_lines,
         code_lines,
         porting_notes,
         adaptation_notes,
         note_total,
-    )
+        regex_counts,
+    }
 }
 
 fn add_build_file(
     root: &mut BuildNode,
     relative_path: &str,
     size: u64,
-    metrics: (u64, u64, u64, u64, u64, u64),
+    metrics: FileMetrics,
 ) {
     let mut parts: Vec<&str> = relative_path.split('/').filter(|p| !p.is_empty()).collect();
     if parts.first() == Some(&"Mathlib") {
@@ -137,7 +166,15 @@ fn add_build_file(
     segments.push(base_name);
     let depth = std::cmp::min(segments.len(), MAX_DEPTH);
 
-    let (loc, comment_lines, code_lines, porting_notes, adaptation_notes, note_total) = metrics;
+    let FileMetrics {
+        loc,
+        comment_lines,
+        code_lines,
+        porting_notes,
+        adaptation_notes,
+        note_total,
+        regex_counts,
+    } = metrics;
     let mut node = root;
     node.size += size;
     node.count += 1;
@@ -147,6 +184,9 @@ fn add_build_file(
     node.porting_notes += porting_notes;
     node.adaptation_notes += adaptation_notes;
     node.note_total += note_total;
+    for (key, value) in &regex_counts {
+        *node.regex_counts.entry(key.clone()).or_insert(0) += value;
+    }
 
     for i in 0..depth {
         let name = segments[i];
@@ -165,6 +205,7 @@ fn add_build_file(
                 porting_notes: 0,
                 adaptation_notes: 0,
                 note_total: 0,
+                regex_counts: HashMap::new(),
             });
         child.size += size;
         child.count += 1;
@@ -174,6 +215,9 @@ fn add_build_file(
         child.porting_notes += porting_notes;
         child.adaptation_notes += adaptation_notes;
         child.note_total += note_total;
+        for (key, value) in &regex_counts {
+            *child.regex_counts.entry(key.clone()).or_insert(0) += value;
+        }
         node = child;
     }
 }
@@ -195,6 +239,9 @@ fn to_treemap_node(node: &BuildNode) -> TreemapNode {
     series.insert("porting_notes".to_string(), node.porting_notes as f64);
     series.insert("adaptation_notes".to_string(), node.adaptation_notes as f64);
     series.insert("notes_total".to_string(), node.note_total as f64);
+    for (key, value) in &node.regex_counts {
+        series.insert(key.clone(), *value as f64);
+    }
     TreemapNode {
         name: node.name.clone(),
         path: node.path.clone(),
@@ -288,7 +335,28 @@ fn normalize_node(node: TreemapNode) -> TreemapNode {
     }
 }
 
-fn build_treemap(mathlib_path: &Path) -> Result<TreemapOutput, String> {
+fn make_regex_key(pattern: &str) -> String {
+    format!("regex:{}", pattern)
+}
+
+fn compile_regex_patterns(patterns: &[String]) -> Result<Vec<RegexPattern>, String> {
+    let mut compiled = Vec::new();
+    for pattern in patterns {
+        if pattern.trim().is_empty() {
+            continue;
+        }
+        let regex =
+            Regex::new(pattern).map_err(|error| format!("Regex error: {}", error))?;
+        compiled.push(RegexPattern {
+            key: make_regex_key(pattern),
+            regex,
+        });
+    }
+    Ok(compiled)
+}
+
+fn build_treemap(mathlib_path: &Path, regex_patterns: &[String]) -> Result<TreemapOutput, String> {
+    let start_time = Instant::now();
     let root_dir = mathlib_path
         .canonicalize()
         .map_err(|error| format!("Failed to open {}: {}", mathlib_path.display(), error))?;
@@ -302,6 +370,7 @@ fn build_treemap(mathlib_path: &Path) -> Result<TreemapOutput, String> {
         Regex::new(r"(?i)porting[\s_-]*note").map_err(|error| format!("Regex error: {}", error))?;
     let adaptation_note_regex =
         Regex::new(r"(?i)#adaptation_note\b").map_err(|error| format!("Regex error: {}", error))?;
+    let compiled_regexes = compile_regex_patterns(regex_patterns)?;
 
     let mut root = make_root_node();
     for entry in WalkDir::new(&mathlib_dir)
@@ -321,7 +390,12 @@ fn build_treemap(mathlib_path: &Path) -> Result<TreemapOutput, String> {
             .metadata()
             .map_err(|error| format!("Failed to stat {}: {}", path.display(), error))?
             .len();
-        let metrics = analyze_lean_content(&content, &porting_note_regex, &adaptation_note_regex);
+        let metrics = analyze_lean_content(
+            &content,
+            &porting_note_regex,
+            &adaptation_note_regex,
+            &compiled_regexes,
+        );
         let relative = path
             .strip_prefix(&root_dir)
             .unwrap_or(path)
@@ -345,6 +419,10 @@ fn build_treemap(mathlib_path: &Path) -> Result<TreemapOutput, String> {
     collect_keys(&output_root, &mut series_keys);
     let mut series_keys_vec: Vec<String> = series_keys.into_iter().collect();
     series_keys_vec.sort();
+    eprintln!(
+        "Treemap build completed in {}ms",
+        start_time.elapsed().as_millis()
+    );
     Ok(TreemapOutput {
         root: output_root,
         series_keys: series_keys_vec,
@@ -352,14 +430,16 @@ fn build_treemap(mathlib_path: &Path) -> Result<TreemapOutput, String> {
 }
 
 #[tauri::command]
-fn scan_mathlib(path: String) -> Result<TreemapOutput, String> {
-    build_treemap(Path::new(&path))
+fn scan_mathlib(path: String, regex_patterns: Option<Vec<String>>) -> Result<TreemapOutput, String> {
+    let patterns = regex_patterns.unwrap_or_default();
+    build_treemap(Path::new(&path), &patterns)
 }
 
 #[tauri::command]
 fn start_mathlib_watch(
     path: String,
     debounce_ms: Option<u64>,
+    regex_patterns: Option<Vec<String>>,
     app: tauri::AppHandle,
     state: State<WatchState>,
 ) -> Result<(), String> {
@@ -376,6 +456,7 @@ fn start_mathlib_watch(
 
     let (stop_tx, stop_rx) = channel();
     let app_handle = app.clone();
+    let patterns = regex_patterns.unwrap_or_default();
     let thread = std::thread::spawn(move || {
         eprintln!("Watching {} for changes...", path_buf.display());
         let (event_tx, event_rx) = channel();
@@ -413,9 +494,21 @@ fn start_mathlib_watch(
             }
             if pending && last_event.elapsed() >= debounce {
                 eprintln!("Rebuilding treemap after changes...");
-                if let Ok(output) = build_treemap(&path_buf) {
+                let _ = app_handle.emit(
+                    "mathlib:treemap-rebuild",
+                    RebuildStatus {
+                        status: "start".to_string(),
+                    },
+                );
+                if let Ok(output) = build_treemap(&path_buf, &patterns) {
                     let _ = app_handle.emit("mathlib:treemap-updated", output);
                 }
+                let _ = app_handle.emit(
+                    "mathlib:treemap-rebuild",
+                    RebuildStatus {
+                        status: "end".to_string(),
+                    },
+                );
                 pending = false;
             }
         }

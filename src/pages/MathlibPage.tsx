@@ -23,8 +23,26 @@ type UploadedData = {
   seriesKeys?: string[]
   entries?: UploadedEntry[]
 }
-type ColorMode = 'absolute' | 'relative'
+type ColorMode = 'global' | 'per_parent'
 type ColorScale = { low: string; high: string }
+type CompiledRegex = { pattern: string; key: string; regex: RegExp }
+type LayoutNode = {
+  name: string
+  path?: string
+  series: Record<string, number>
+  isLeaf?: boolean
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+  fill: string
+  parentName?: string
+}
+type LayoutPayload = {
+  parentNodes: LayoutNode[]
+  childNodes: LayoutNode[]
+  labelSuffix: string
+}
 
 type MathlibPageProps = {
   embedded?: boolean
@@ -33,6 +51,7 @@ type MathlibPageProps = {
 declare global {
   interface Window {
     acquireVsCodeApi?: () => { postMessage: (message: unknown) => void }
+    __vscodeApi?: { postMessage: (message: unknown) => void }
   }
 }
 
@@ -48,6 +67,7 @@ type BuildNode = {
   portingNotes: number
   adaptationNotes: number
   noteTotal: number
+  regexCounts: Record<string, number>
 }
 
 const MAX_DEPTH = 5
@@ -56,11 +76,36 @@ const GROUP_BY = 'loc'
 const portingNoteRegex = /porting[\s_-]*note/gi
 const adaptationNoteRegex = /#adaptation_note\b/gi
 
-const analyzeLeanContent = (content: string) => {
+const makeRegexKey = (pattern: string) => `regex:${pattern}`
+
+const compileRegexPatterns = (patterns: string[]): CompiledRegex[] => {
+  const compiled: CompiledRegex[] = []
+  patterns.forEach((pattern) => {
+    if (!pattern.trim()) {
+      return
+    }
+    try {
+      compiled.push({
+        pattern,
+        key: makeRegexKey(pattern),
+        regex: new RegExp(pattern, 'g'),
+      })
+    } catch (error) {
+      console.warn('Invalid regex pattern', pattern, error)
+    }
+  })
+  return compiled
+}
+
+const analyzeLeanContent = (content: string, regexPatterns: CompiledRegex[]) => {
   const lines = content.split(/\r\n|\r|\n/)
   const loc = lines.length
   const portingNotes = Array.from(content.matchAll(portingNoteRegex)).length
   const adaptationNotes = Array.from(content.matchAll(adaptationNoteRegex)).length
+  const regexCounts: Record<string, number> = {}
+  regexPatterns.forEach(({ key, regex }) => {
+    regexCounts[key] = content.match(regex)?.length ?? 0
+  })
   let commentLines = 0
   let inBlock = false
   for (const line of lines) {
@@ -91,6 +136,7 @@ const analyzeLeanContent = (content: string) => {
     portingNotes,
     adaptationNotes,
     noteTotal: portingNotes + adaptationNotes,
+    regexCounts,
   }
 }
 
@@ -106,6 +152,7 @@ const makeRootNode = (): BuildNode => ({
   portingNotes: 0,
   adaptationNotes: 0,
   noteTotal: 0,
+  regexCounts: {},
 })
 
 const addBuildFile = (
@@ -135,6 +182,9 @@ const addBuildFile = (
   node.portingNotes += metrics.portingNotes
   node.adaptationNotes += metrics.adaptationNotes
   node.noteTotal += metrics.noteTotal
+  Object.entries(metrics.regexCounts).forEach(([key, value]) => {
+    node.regexCounts[key] = (node.regexCounts[key] ?? 0) + value
+  })
 
   for (let i = 0; i < depth; i += 1) {
     const name = segments[i]
@@ -152,6 +202,7 @@ const addBuildFile = (
         portingNotes: 0,
         adaptationNotes: 0,
         noteTotal: 0,
+        regexCounts: {},
       }
       node.children.set(name, child)
     }
@@ -163,6 +214,9 @@ const addBuildFile = (
     child.portingNotes += metrics.portingNotes
     child.adaptationNotes += metrics.adaptationNotes
     child.noteTotal += metrics.noteTotal
+    Object.entries(metrics.regexCounts).forEach(([key, value]) => {
+      child.regexCounts[key] = (child.regexCounts[key] ?? 0) + value
+    })
     node = child
   }
 }
@@ -218,15 +272,16 @@ const normalizeNode = (node: TreemapNode): TreemapNode => {
   return { ...node, children: [...keep, otherNode] }
 }
 
-const buildTreemapFromFiles = async (files: FileList) => {
+const buildTreemapFromFiles = async (files: FileList, regexPatterns: string[]) => {
   const root = makeRootNode()
+  const compiledRegexes = compileRegexPatterns(regexPatterns)
   const firstRelative = Array.from(files)[0]?.webkitRelativePath?.replace(/\\/g, '/') ?? ''
   const baseFolder = firstRelative.includes('/') ? firstRelative.split('/')[0] : ''
   const readFiles = Array.from(files)
     .filter((file) => file.name.endsWith('.lean'))
     .map(async (file) => {
       const content = await file.text()
-      const metrics = analyzeLeanContent(content)
+      const metrics = analyzeLeanContent(content, compiledRegexes)
       const rawPath = (file.webkitRelativePath || file.name).replace(/\\/g, '/')
       const relativePath = baseFolder && rawPath.startsWith(`${baseFolder}/`)
         ? rawPath.slice(baseFolder.length + 1)
@@ -238,21 +293,23 @@ const buildTreemapFromFiles = async (files: FileList) => {
   const toTreemapNode = (node: BuildNode): TreemapNode => {
     const children = Array.from(node.children.values()).map(toTreemapNode)
     const commentRatio = node.codeLines > 0 ? node.commentLines / node.codeLines : 0
+    const series = {
+      bytes: node.size,
+      file_count: node.count,
+      loc: node.loc,
+      comment_lines: node.commentLines,
+      code_lines: node.codeLines,
+      comment_ratio: commentRatio,
+      porting_notes: node.portingNotes,
+      adaptation_notes: node.adaptationNotes,
+      notes_total: node.noteTotal,
+      ...node.regexCounts,
+    }
     return {
       name: node.name,
       path: node.path,
       children: children.length > 0 ? children : undefined,
-      series: {
-        bytes: node.size,
-        file_count: node.count,
-        loc: node.loc,
-        comment_lines: node.commentLines,
-        code_lines: node.codeLines,
-        comment_ratio: commentRatio,
-        porting_notes: node.portingNotes,
-        adaptation_notes: node.adaptationNotes,
-        notes_total: node.noteTotal,
-      },
+      series,
     }
   }
 
@@ -285,9 +342,83 @@ const useTreemap = (
   isTauri: boolean,
   vscodePath: string,
 ) => {
+  const workerRef = useRef<Worker | null>(null)
+  const requestIdRef = useRef(0)
+  const [layout, setLayout] = useState<LayoutPayload | null>(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    const worker = new Worker(
+      new URL('../workers/treemapWorker.ts', import.meta.url),
+      { type: 'module' },
+    )
+    workerRef.current = worker
+    const handleMessage = (event: MessageEvent) => {
+      const payload = event.data as { type?: string; requestId?: number; payload?: LayoutPayload }
+      if (payload.type !== 'layout' || !payload.payload) {
+        return
+      }
+      if (payload.requestId !== requestIdRef.current) {
+        return
+      }
+      setLayout(payload.payload)
+    }
+    worker.addEventListener('message', handleMessage)
+    return () => {
+      worker.removeEventListener('message', handleMessage)
+      worker.terminate()
+      workerRef.current = null
+    }
+  }, [])
+
   useEffect(() => {
     const container = containerRef.current
     if (!container) {
+      return
+    }
+    const width = container.clientWidth
+    if (!width) {
+      return
+    }
+    const worker = workerRef.current
+    if (!worker) {
+      return
+    }
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
+    worker.postMessage({
+      type: 'layout',
+      requestId,
+      payload: {
+        data,
+        sizeSeries,
+        colorSeries,
+        colorMode,
+        theme,
+        zoomPath,
+        width,
+        height: 840,
+        colors,
+        colorScale,
+      },
+    })
+  }, [
+    containerRef,
+    data,
+    sizeSeries,
+    colorSeries,
+    colorMode,
+    theme,
+    zoomPath,
+    colors,
+    colorScale,
+  ])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || !layout) {
       return
     }
 
@@ -304,120 +435,6 @@ const useTreemap = (
 
     const tooltip = tooltipRef.current
     const formatter = new Intl.NumberFormat('en-US')
-
-    const valueForSeries = (node: TreemapNode, key: string) => node.series?.[key] ?? 0
-
-    const root = d3
-      .hierarchy<TreemapNode>(data)
-      .sum((d) => valueForSeries(d, sizeSeries))
-      .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
-
-    const findNode = (node: d3.HierarchyNode<TreemapNode>, path: string[]) => {
-      let current = node
-      for (const segment of path) {
-        const next = current.children?.find((child) => child.data.name === segment)
-        if (!next) {
-          return current
-        }
-        current = next
-      }
-      return current
-    }
-
-    const zoomRoot = findNode(root, zoomPath)
-    const topLevel = zoomRoot.children ?? []
-
-    const displayRoot = d3.hierarchy({
-      name: zoomRoot.data.name,
-      path: zoomRoot.data.path,
-      children: topLevel.map((child) => {
-        const grandChildren = child.children ?? []
-        if (grandChildren.length === 0) {
-          return {
-            name: child.data.name,
-            path: child.data.path,
-            series: child.data.series ?? {},
-            isLeaf: true,
-          }
-        }
-        return {
-          name: child.data.name,
-          path: child.data.path,
-          series: child.data.series ?? {},
-          children: grandChildren.map((g) => ({
-            name: g.data.name,
-            path: g.data.path,
-            series: g.data.series ?? {},
-            isLeaf: !(g.children && g.children.length > 0),
-          })),
-          isLeaf: false,
-        }
-      }),
-    } as TreemapNode)
-
-    const sizeValueForLayout = (node: TreemapNode) => (
-      node.children && node.children.length > 0 ? 0 : valueForSeries(node, sizeSeries)
-    )
-    displayRoot.sum(sizeValueForLayout)
-    const tiledRoot = d3
-      .treemap<TreemapNode>()
-      .size([width, height])
-      .paddingOuter(2)
-      .paddingInner(3)
-      .paddingTop((d) => (d.depth === 1 ? 18 : 2))(displayRoot)
-
-    const relativeValue = (
-      node: d3.HierarchyNode<TreemapNode>,
-    ) => {
-      const parent = node.parent
-      if (!parent?.children?.length) {
-        return valueForSeries(node.data, colorSeries)
-      }
-      const total = parent.children.reduce(
-        (sum, child) => sum + valueForSeries(child.data, colorSeries),
-        0,
-      )
-      if (total <= 0) {
-        return 0
-      }
-      return valueForSeries(node.data, colorSeries) / total
-    }
-
-    const colorIndexByName = new Map(
-      topLevel.map((child, index) => [child.data.name, index]),
-    )
-    const color = (name: string) => {
-      const index = colorIndexByName.get(name) ?? 0
-      return colors[index % colors.length]
-    }
-    const colorMax = Math.max(
-      0,
-      ...topLevel.map((child) => (
-        colorMode === 'relative'
-          ? relativeValue(child)
-          : valueForSeries(child.data, colorSeries)
-      )),
-    )
-    const colorScaleFn = d3
-      .scaleLinear<string>()
-      .domain([0, colorMax || 1])
-      .range([colorScale.low, colorScale.high])
-
-    const fillForNode = (
-      node: d3.HierarchyRectangularNode<TreemapNode>,
-      fallbackName: string,
-    ) => {
-      const seriesValue = colorMode === 'relative'
-        ? relativeValue(node)
-        : valueForSeries(node.data, colorSeries)
-      if (seriesValue <= 0) {
-        return theme === 'reticle' ? '#000000' : '#ffffff'
-      }
-      if (!Number.isFinite(seriesValue)) {
-        return color(fallbackName)
-      }
-      return colorScaleFn(seriesValue)
-    }
 
     const setTooltip = (
       event: MouseEvent,
@@ -442,17 +459,16 @@ const useTreemap = (
       tooltip.classList.remove('is-visible')
     }
 
-    const labelSuffix = sizeSeries.replace(/_/g, ' ')
-
-    const parentNodes = tiledRoot.descendants().filter((d) => d.depth === 1)
-    const childNodes = tiledRoot.descendants().filter((d) => d.depth === 2)
+    const labelSuffix = layout.labelSuffix
+    const parentNodes = layout.parentNodes
+    const childNodes = layout.childNodes
     const basePath = isTauri ? mathlibPath : vscodePath
     const normalizedBasePath = basePath.trim().replace(/\/+$/, '')
-    const buildFileTarget = (node: d3.HierarchyRectangularNode<TreemapNode>) => {
+    const buildFileTarget = (node: LayoutNode) => {
       if (!normalizedBasePath) {
         return null
       }
-      const nodePath = node.data.path?.replace(/^\/+/, '')
+      const nodePath = node.path?.replace(/^\/+/, '')
       if (!nodePath) {
         return null
       }
@@ -468,13 +484,13 @@ const useTreemap = (
       .attr('width', (d) => d.x1 - d.x0)
       .attr('height', (d) => d.y1 - d.y0)
       .attr('class', 'treemap-rect treemap-parent')
-      .classed('is-leaf', (d) => !!d.data.isLeaf)
-      .classed('is-folder', (d) => !d.data.isLeaf)
-      .attr('fill', (d) => fillForNode(d, d.data.name))
+      .classed('is-leaf', (d) => !!d.isLeaf)
+      .classed('is-folder', (d) => !d.isLeaf)
+      .attr('fill', (d) => d.fill)
 
-      .attr('data-group', (d) => d.data.name)
+      .attr('data-group', (d) => d.name)
       .on('click', (_, d) => {
-        if (d.data.isLeaf) {
+        if (d.isLeaf) {
           const target = buildFileTarget(d)
           if (target) {
             void openFileTarget(target.fullPath, target.link)
@@ -483,15 +499,15 @@ const useTreemap = (
           }
           return
         }
-        setZoomPath([...zoomPath, d.data.name])
+        setZoomPath([...zoomPath, d.name])
       })
       .on('mouseover', function () {
         d3.select(this).classed('is-hovered', true)
       })
       .on('mousemove', (event, d) => {
-        const label = [...zoomPath, d.data.name].filter(Boolean)
-        const sizeValue = d.data ? valueForSeries(d.data, sizeSeries) : d.value ?? 0
-        const colorValue = d.data ? valueForSeries(d.data, colorSeries) : 0
+        const label = [...zoomPath, d.name].filter(Boolean)
+        const sizeValue = d.series?.[sizeSeries] ?? 0
+        const colorValue = d.series?.[colorSeries] ?? 0
         setTooltip(event, label, sizeValue, labelSuffix)
         if (tooltip) {
           tooltip.textContent = `${label.join(' / ')} · ${formatter.format(sizeValue)} ${labelSuffix} · ${formatter.format(colorValue)} ${colorSeries.replace(/_/g, ' ')}`
@@ -507,11 +523,11 @@ const useTreemap = (
       .attr('x', (d) => d.x0 + 6)
       .attr('y', (d) => d.y0 + 14)
       .attr('class', 'treemap-parent-label')
-      .text((d) => d.data.name)
+      .text((d) => d.name)
 
     const nodes = svg.selectAll('g.child').data(childNodes).enter().append('g').attr('class', 'child')
 
-    const clipId = (_: d3.HierarchyRectangularNode<TreemapNode>, i: number) => (
+    const clipId = (_: LayoutNode, i: number) => (
       `treemap-clip-${sizeSeries}-${i}`
     )
     const defs = svg.append('defs')
@@ -534,12 +550,12 @@ const useTreemap = (
       .attr('width', (d) => d.x1 - d.x0)
       .attr('height', (d) => d.y1 - d.y0)
       .attr('class', 'treemap-rect treemap-child')
-      .classed('is-leaf', (d) => !!d.data.isLeaf)
-      .classed('is-folder', (d) => !d.data.isLeaf)
-      .attr('fill', (d) => fillForNode(d, d.parent?.data.name ?? ''))
-      .attr('data-group', (d) => d.parent?.data.name ?? '')
+      .classed('is-leaf', (d) => !!d.isLeaf)
+      .classed('is-folder', (d) => !d.isLeaf)
+      .attr('fill', (d) => d.fill)
+      .attr('data-group', (d) => d.parentName ?? '')
       .on('click', (_, d) => {
-        if (d.data.isLeaf) {
+        if (d.isLeaf) {
           const target = buildFileTarget(d)
           if (target) {
             void openFileTarget(target.fullPath, target.link)
@@ -548,16 +564,16 @@ const useTreemap = (
           }
           return
         }
-        const parent = d.parent?.data.name
+        const parent = d.parentName
         if (parent) {
-          setZoomPath([...zoomPath, parent, d.data.name])
+          setZoomPath([...zoomPath, parent, d.name])
         }
       })
       .on('mousemove', (event, d) => {
-        const parent = d.parent?.data.name ?? ''
-        const label = [...zoomPath, parent, d.data.name].filter(Boolean)
-        const sizeValue = d.data ? valueForSeries(d.data, sizeSeries) : d.value ?? 0
-        const colorValue = d.data ? valueForSeries(d.data, colorSeries) : 0
+        const parent = d.parentName ?? ''
+        const label = [...zoomPath, parent, d.name].filter(Boolean)
+        const sizeValue = d.series?.[sizeSeries] ?? 0
+        const colorValue = d.series?.[colorSeries] ?? 0
         setTooltip(event, label, sizeValue, labelSuffix)
         if (tooltip) {
           tooltip.textContent = `${label.join(' / ')} · ${formatter.format(sizeValue)} ${labelSuffix} · ${formatter.format(colorValue)} ${colorSeries.replace(/_/g, ' ')}`
@@ -578,16 +594,16 @@ const useTreemap = (
       .attr('class', 'treemap-label')
       .attr('dominant-baseline', 'hanging')
       .attr('clip-path', (d, i) => `url(#${clipId(d, i)})`)
-      .text((d) => d.data.name)
+      .text((d) => d.name)
       .style('display', (d) => (
         (d.x1 - d.x0 < 28 || d.y1 - d.y0 < 14) ? 'none' : 'block'
       ))
 
     if (hoveredGroup) {
       svg
-        .selectAll<SVGRectElement, d3.HierarchyRectangularNode<TreemapNode>>('.treemap-child')
-        .classed('is-dim', (d) => (d.parent?.data.name ?? '') !== hoveredGroup)
-        .classed('is-group-hovered', (d) => (d.parent?.data.name ?? '') === hoveredGroup)
+        .selectAll<SVGRectElement, LayoutNode>('.treemap-child')
+        .classed('is-dim', (d) => (d.parentName ?? '') !== hoveredGroup)
+        .classed('is-group-hovered', (d) => (d.parentName ?? '') === hoveredGroup)
     }
 
     return () => {
@@ -611,6 +627,7 @@ const useTreemap = (
     warnMissingMathlibPath,
     isTauri,
     vscodePath,
+    layout,
   ])
 }
 
@@ -629,19 +646,27 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   const [seriesKeys, setSeriesKeys] = useState<string[]>(defaultSeriesKeys)
   const [sizeSeries, setSizeSeries] = useState<string>('loc')
   const [colorSeries, setColorSeries] = useState<string>('porting_notes')
-  const [colorMode, setColorMode] = useState<ColorMode>('absolute')
+  const [colorMode, setColorMode] = useState<ColorMode>('global')
   const [zoomPath, setZoomPath] = useState<string[]>([])
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null)
+  const [regexInput, setRegexInput] = useState<string>('')
+  const [regexError, setRegexError] = useState<string>('')
+  const [regexPatterns, setRegexPatterns] = useState<string[]>([])
+  const [isRebuilding, setIsRebuilding] = useState<boolean>(false)
+  const rebuildStartRef = useRef<number | null>(null)
+  const regexCountRef = useRef<number>(0)
   const mathlibFolderRef = useRef<HTMLInputElement>(null)
   const [mathlibPath, setMathlibPath] = useState<string>('')
   const [vscodePath, setVscodePath] = useState<string>('')
-  const vscodeApi = typeof window !== 'undefined' ? window.acquireVsCodeApi?.() ?? null : null
+  const vscodeApi = typeof window !== 'undefined'
+    ? (window.__vscodeApi ?? (window.acquireVsCodeApi ? (window.__vscodeApi = window.acquireVsCodeApi()) : null))
+    : null
   const isVscode = !!vscodeApi
   const isTauri = typeof window !== 'undefined' && (
     !!(window as { __TAURI__?: unknown }).__TAURI__ ||
     !!(window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
   )
-  const pastel = [
+  const pastel = useMemo(() => ([
     '#ffd8be',
     '#cde7f0',
     '#d7f3d0',
@@ -654,8 +679,8 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     '#d0e6ff',
     '#e7f0c3',
     '#f4e1c1',
-  ]
-  const pastelDark = [
+  ]), [])
+  const pastelDark = useMemo(() => ([
     '#6e3b2c',
     '#2e4a56',
     '#355843',
@@ -668,14 +693,22 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     '#2f4058',
     '#3e4a2a',
     '#57412a',
-  ]
-  const palette = theme === 'reticle' ? pastelDark : pastel
-  const colorScale = theme === 'reticle'
-    ? { low: '#3d7cc8', high: '#c9773a' }
-    : { low: '#2d72c4', high: '#e38c4a' }
+  ]), [])
+  const palette = useMemo(() => (
+    theme === 'reticle' ? pastelDark : pastel
+  ), [pastel, pastelDark, theme])
+  const colorScale = useMemo(() => (
+    theme === 'reticle'
+      ? { low: '#3d7cc8', high: '#c9773a' }
+      : { low: '#2d72c4', high: '#e38c4a' }
+  ), [theme])
 
   const warnMissingMathlibPath = async () => {
     const message = 'Set a Mathlib path to open files directly in VS Code.'
+    if (isVscode) {
+      vscodeApi?.postMessage({ type: 'showWarning', text: message })
+      return
+    }
     if (isTauri) {
       try {
         const dialog = await import(/* @vite-ignore */ '@tauri-apps/plugin-dialog')
@@ -708,6 +741,116 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     }
     window.location.href = link
   }
+
+  const beginRebuild = useCallback((label: string) => {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
+    rebuildStartRef.current = now
+    setIsRebuilding(true)
+    console.log(`[treemap] rebuild start (${label})`)
+  }, [])
+
+  const finishRebuild = useCallback((label: string) => {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
+    const start = rebuildStartRef.current
+    setIsRebuilding(false)
+    if (start !== null) {
+      const durationMs = now - start
+      console.log(`[treemap] rebuild end (${label}) ${durationMs.toFixed(1)}ms`)
+      rebuildStartRef.current = null
+    }
+  }, [])
+
+  const addRegexPattern = () => {
+    const pattern = regexInput.trim()
+    if (!pattern) {
+      return
+    }
+    try {
+      new RegExp(pattern)
+    } catch (error) {
+      setRegexError('Invalid regex')
+      return
+    }
+    if (regexPatterns.includes(pattern)) {
+      setRegexError('Regex already added')
+      return
+    }
+    setRegexPatterns((current) => [...current, pattern])
+    setRegexInput('')
+    setRegexError('')
+  }
+
+  const removeRegexPattern = (pattern: string) => {
+    setRegexPatterns((current) => current.filter((item) => item !== pattern))
+  }
+
+  const notifyMissingRebuildPath = async () => {
+    const message = 'Set a Mathlib path before rebuilding.'
+    if (isVscode) {
+      vscodeApi?.postMessage({ type: 'showWarning', text: message })
+      return
+    }
+    if (isTauri) {
+      try {
+        const dialog = await import(/* @vite-ignore */ '@tauri-apps/plugin-dialog')
+        await dialog.message(message, { title: 'Mathlib path needed', kind: 'warning' })
+        return
+      } catch (error) {
+        console.warn('Failed to show dialog', error)
+      }
+    }
+    window.alert(message)
+  }
+
+  const handleRebuild = async () => {
+    if (isVscode) {
+      if (!vscodePath.trim()) {
+        await notifyMissingRebuildPath()
+        return
+      }
+      vscodeApi?.postMessage({ type: 'requestRebuild', path: vscodePath })
+      return
+    }
+    if (isTauri) {
+      if (!mathlibPath.trim()) {
+        await notifyMissingRebuildPath()
+        return
+      }
+      beginRebuild('tauri-manual')
+      try {
+        const core = await import(/* @vite-ignore */ '@tauri-apps/api/core')
+        const result = await core.invoke<UploadedData>('scan_mathlib', {
+          path: mathlibPath,
+          regexPatterns,
+        })
+        if (result?.root) {
+          const root = result.root
+          const keys = result.seriesKeys ?? Object.keys(root.series ?? {})
+          window.setTimeout(() => {
+            setData(root)
+            setSeriesKeys(keys)
+            finishRebuild('tauri-manual')
+          }, 0)
+        } else {
+          finishRebuild('tauri-manual')
+        }
+      } catch (error) {
+        finishRebuild('tauri-manual')
+        console.warn('Failed to rescan mathlib', error)
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!(isVscode || isTauri)) {
+      regexCountRef.current = regexPatterns.length
+      return
+    }
+    if (regexPatterns.length > regexCountRef.current) {
+      void handleRebuild()
+    }
+    regexCountRef.current = regexPatterns.length
+  }, [handleRebuild, isTauri, isVscode, regexPatterns])
 
   useTreemap(
     treemapRef,
@@ -763,34 +906,25 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   }, [mathlibPath, vscodePath, isTauri])
 
   useEffect(() => {
-    if (!isTauri) {
+    if (!isVscode) {
       return
     }
-    let unlisten: (() => void) | null = null
-    void (async () => {
-      const event = await import(/* @vite-ignore */ '@tauri-apps/api/event')
-      unlisten = await event.listen<UploadedData>('mathlib:treemap-updated', (event) => {
-        const payload = event.payload
-      if (payload?.root) {
-        setData(payload.root)
-        setSeriesKeys(payload.seriesKeys ?? Object.keys(payload.root.series ?? {}))
-      }
-      })
-    })()
-    return () => {
-      if (unlisten) {
-        unlisten()
-      }
-      void (async () => {
-        try {
-          const core = await import(/* @vite-ignore */ '@tauri-apps/api/core')
-          await core.invoke('stop_mathlib_watch')
-        } catch (error) {
-          console.warn('Failed to stop mathlib watch', error)
-        }
-      })()
+    vscodeApi?.postMessage({ type: 'setRegexPatterns', patterns: regexPatterns })
+  }, [isVscode, vscodeApi, regexPatterns])
+
+  useEffect(() => {
+    if (!isVscode) {
+      return
     }
-  }, [isTauri])
+    const handle = window.setTimeout(() => {
+      vscodeApi?.postMessage({ type: 'setMathlibPath', path: vscodePath })
+    }, 600)
+    return () => {
+      window.clearTimeout(handle)
+    }
+  }, [isVscode, vscodeApi, vscodePath])
+
+  // Manual rebuild only; no automatic watch in Tauri.
 
   useEffect(() => {
     if (!mathlibFolderRef.current) {
@@ -829,9 +963,13 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
       setMathlibPath(nextPath)
     }
     void (async () => {
-      const built = await buildTreemapFromFiles(files)
-      setData(built.root)
-      setSeriesKeys(built.seriesKeys)
+      beginRebuild('file-build')
+      const built = await buildTreemapFromFiles(files, regexPatterns)
+      window.setTimeout(() => {
+        setData(built.root)
+        setSeriesKeys(built.seriesKeys)
+        finishRebuild('file-build')
+      }, 0)
     })()
   }
 
@@ -843,16 +981,9 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
           directory: true,
           multiple: false,
         })
-        if (typeof selected === 'string') {
-          setMathlibPath(selected)
-          const core = await import(/* @vite-ignore */ '@tauri-apps/api/core')
-          const result = await core.invoke<UploadedData>('scan_mathlib', { path: selected })
-          if (result?.root) {
-            setData(result.root)
-            setSeriesKeys(result.seriesKeys ?? Object.keys(result.root.series ?? {}))
+          if (typeof selected === 'string') {
+            setMathlibPath(selected)
           }
-          await core.invoke('start_mathlib_watch', { path: selected, debounceMs: 1200 })
-        }
         return
       }
       mathlibFolderRef.current?.click()
@@ -928,6 +1059,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     }
   }, [])
 
+
   const handleUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) {
@@ -953,27 +1085,52 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     if (!isVscode) {
       return
     }
+    vscodeApi?.postMessage({ type: 'webviewReady' })
     const handler = (event: MessageEvent) => {
-      const message = event.data as { type?: string; text?: string }
-      if (message.type === 'loadJson' && message.text) {
-        try {
-          const parsed = JSON.parse(message.text) as UploadedData
-          applyUploadedData(parsed)
-        } catch (error) {
-          console.error('Failed to parse JSON from VS Code', error)
+      const message = event.data as {
+        type?: string
+        text?: string
+        path?: string
+        status?: string
+      }
+      if (message.type === 'loadJson' && typeof message.text === 'string') {
+        const text = message.text
+        window.setTimeout(() => {
+          try {
+            const parsed = JSON.parse(text) as UploadedData
+            applyUploadedData(parsed)
+            finishRebuild('vscode-load')
+          } catch (error) {
+            console.error('Failed to parse JSON from VS Code', error)
+            finishRebuild('vscode-load')
+          }
+        }, 0)
+      }
+      if (message.type === 'setMathlibPath' && message.path) {
+        const normalized = message.path.replace(/\/+$/, '')
+        const basePath = normalized.endsWith('/Mathlib')
+          ? normalized.slice(0, Math.max(0, normalized.length - '/Mathlib'.length))
+          : normalized
+        setVscodePath(basePath)
+      }
+      if (message.type === 'rebuildStatus') {
+        if (message.status === 'start') {
+          beginRebuild('vscode-watch')
+        } else if (message.status === 'end') {
+          finishRebuild('vscode-watch')
         }
       }
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
-  }, [applyUploadedData, isVscode])
+  }, [applyUploadedData, beginRebuild, finishRebuild, isVscode])
 
   const handleReset = () => {
     setData(defaultData)
     setSeriesKeys(defaultSeriesKeys)
     setSizeSeries(defaultSeriesKeys.includes('loc') ? 'loc' : (defaultSeriesKeys[0] ?? 'loc'))
     setColorSeries(defaultSeriesKeys.includes('porting_notes') ? 'porting_notes' : (defaultSeriesKeys[0] ?? 'porting_notes'))
-    setColorMode('absolute')
+    setColorMode('global')
     setZoomPath([])
   }
 
@@ -1000,7 +1157,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
             <div className="panel">
               <p className="treemap-note">
                 Coloring: blue → low, orange → high. Zero values are black in dark mode and white in light mode.
-                Relative mode normalizes within siblings; absolute mode uses raw values.
+                Global mode scales across the visible leaves; per parent normalizes within each parent block.
               </p>
             </div>
           </>
@@ -1061,6 +1218,11 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
               </button>
             </>
           )}
+          {isVscode || isTauri ? (
+            <button className="ghost-button" type="button" onClick={handleRebuild}>
+              REBUILD
+            </button>
+          ) : null}
           <label className="treemap-select">
             <span>SIZE</span>
             <select
@@ -1093,11 +1255,59 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
               value={colorMode}
               onChange={(event) => setColorMode(event.target.value as ColorMode)}
             >
-              <option value="absolute">absolute</option>
-              <option value="relative">relative</option>
+              <option value="global">global</option>
+              <option value="per_parent">per parent</option>
             </select>
           </label>
+          {isVscode || isTauri ? (
+            <>
+              <label className="treemap-select treemap-regex-input">
+                <span>REGEX</span>
+                <input
+                  type="text"
+                  value={regexInput}
+                  onChange={(event) => {
+                    setRegexInput(event.target.value)
+                    if (regexError) {
+                      setRegexError('')
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      addRegexPattern()
+                    }
+                  }}
+                  placeholder={String.raw`e.g. \bTODO\b`}
+                />
+              </label>
+              <button className="ghost-button" type="button" onClick={addRegexPattern}>
+                ADD REGEX
+              </button>
+            </>
+          ) : null}
         </div>
+        {isVscode || isTauri ? (
+          <>
+            {regexError ? <div className="treemap-regex-error">{regexError}</div> : null}
+            {regexPatterns.length > 0 ? (
+              <div className="treemap-regex-list">
+                {regexPatterns.map((pattern) => (
+                  <div key={pattern} className="treemap-regex-chip">
+                    <span className="treemap-regex-label">{pattern}</span>
+                    <button
+                      className="ghost-button"
+                      type="button"
+                      onClick={() => removeRegexPattern(pattern)}
+                    >
+                      REMOVE
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </>
+        ) : null}
         <div className="treemap-separator" />
         <div className="treemap-breadcrumb">
           <button className="ghost-button" onClick={() => setZoomPath([])}>
@@ -1116,6 +1326,12 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
           })}
         </div>
         <div className="treemap-panel">
+          {isRebuilding ? (
+            <div className="treemap-rebuild">
+              <span className="treemap-spinner" aria-hidden="true" />
+              <span>Rebuilding</span>
+            </div>
+          ) : null}
           <div className="treemap-canvas" ref={treemapRef} />
           <div className="treemap-tooltip" ref={tooltipRef} />
         </div>

@@ -1,4 +1,4 @@
-import{u as t,j as e,S as r,c as o,r as l}from"./index-CmsUpJRH.js";const c=[{name:"induction",description:"Split a goal into base and inductive cases on a natural number or inductive type.",example:`theorem add_zero (n : Nat) : n + 0 = n := by
+import{u as t,j as e,S as r,c as o,r as l}from"./index-D13IQ1j3.js";const c=[{name:"induction",description:"Split a goal into base and inductive cases on a natural number or inductive type.",example:`theorem add_zero (n : Nat) : n + 0 = n := by
   induction n with
   | zero => rfl
   | succ n ih =>

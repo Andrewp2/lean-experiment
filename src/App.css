@@ -469,6 +469,42 @@
   color: var(--muted);
 }
 
+.treemap-regex-input input[type="text"] {
+  min-width: 260px;
+}
+
+.treemap-regex-error {
+  font-size: 0.7rem;
+  color: #b44937;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.treemap-regex-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.treemap-regex-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border-strong);
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.treemap-regex-label {
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .treemap-select select:focus {
   outline: none;
 }
@@ -527,6 +563,32 @@
   position: relative;
 }
 
+.treemap-rebuild {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  z-index: 2;
+}
+
+.treemap-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--ink);
+  animation: treemap-spin 0.9s linear infinite;
+}
+
 .treemap-canvas {
   width: 100%;
   min-height: 840px;
@@ -543,7 +605,7 @@
 .treemap-rect {
   stroke: var(--border-strong);
   stroke-width: 1px;
-  pointer-events: all;
+  pointer-events: fill;
   cursor: pointer;
 }
 
@@ -580,6 +642,12 @@
 .treemap-rect.is-group-hovered {
   stroke: var(--fl-cyan);
   stroke-width: 2px;
+}
+
+@keyframes treemap-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .treemap-rect.is-dim {
