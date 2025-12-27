@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as d3 from 'd3'
 import { SiteHeader } from '../components/SiteHeader'
 import { useThemeMode } from '../hooks/useThemeMode'
@@ -25,6 +25,16 @@ type UploadedData = {
 }
 type ColorMode = 'absolute' | 'relative'
 type ColorScale = { low: string; high: string }
+
+type MathlibPageProps = {
+  embedded?: boolean
+}
+
+declare global {
+  interface Window {
+    acquireVsCodeApi?: () => { postMessage: (message: unknown) => void }
+  }
+}
 
 type BuildNode = {
   name: string
@@ -270,7 +280,7 @@ const useTreemap = (
   tooltipRef: React.RefObject<HTMLDivElement>,
   colorScale: ColorScale,
   mathlibPath: string,
-  openVscodeLink: (link: string) => void,
+  openFileTarget: (fullPath: string, link: string) => void,
   warnMissingMathlibPath: () => void,
   isTauri: boolean,
   vscodePath: string,
@@ -333,6 +343,7 @@ const useTreemap = (
         return {
           name: child.data.name,
           path: child.data.path,
+          series: child.data.series ?? {},
           children: grandChildren.map((g) => ({
             name: g.data.name,
             path: g.data.path,
@@ -344,7 +355,10 @@ const useTreemap = (
       }),
     } as TreemapNode)
 
-    displayRoot.sum((d) => valueForSeries(d, sizeSeries))
+    const sizeValueForLayout = (node: TreemapNode) => (
+      node.children && node.children.length > 0 ? 0 : valueForSeries(node, sizeSeries)
+    )
+    displayRoot.sum(sizeValueForLayout)
     const tiledRoot = d3
       .treemap<TreemapNode>()
       .size([width, height])
@@ -434,7 +448,7 @@ const useTreemap = (
     const childNodes = tiledRoot.descendants().filter((d) => d.depth === 2)
     const basePath = isTauri ? mathlibPath : vscodePath
     const normalizedBasePath = basePath.trim().replace(/\/+$/, '')
-    const buildVscodeLink = (node: d3.HierarchyRectangularNode<TreemapNode>) => {
+    const buildFileTarget = (node: d3.HierarchyRectangularNode<TreemapNode>) => {
       if (!normalizedBasePath) {
         return null
       }
@@ -443,7 +457,7 @@ const useTreemap = (
         return null
       }
       const fullPath = `${normalizedBasePath}/${nodePath}.lean`
-      return `vscode://file/${encodeURI(fullPath)}`
+      return { fullPath, link: `vscode://file/${encodeURI(fullPath)}` }
     }
 
     const parents = svg.selectAll('g.parent').data(parentNodes).enter().append('g').attr('class', 'parent')
@@ -461,9 +475,9 @@ const useTreemap = (
       .attr('data-group', (d) => d.data.name)
       .on('click', (_, d) => {
         if (d.data.isLeaf) {
-          const link = buildVscodeLink(d)
-          if (link) {
-            void openVscodeLink(link)
+          const target = buildFileTarget(d)
+          if (target) {
+            void openFileTarget(target.fullPath, target.link)
           } else {
             void warnMissingMathlibPath()
           }
@@ -526,9 +540,9 @@ const useTreemap = (
       .attr('data-group', (d) => d.parent?.data.name ?? '')
       .on('click', (_, d) => {
         if (d.data.isLeaf) {
-          const link = buildVscodeLink(d)
-          if (link) {
-            void openVscodeLink(link)
+          const target = buildFileTarget(d)
+          if (target) {
+            void openFileTarget(target.fullPath, target.link)
           } else {
             void warnMissingMathlibPath()
           }
@@ -593,13 +607,14 @@ const useTreemap = (
     tooltipRef,
     colorScale,
     mathlibPath,
-    openVscodeLink,
+    openFileTarget,
+    warnMissingMathlibPath,
     isTauri,
     vscodePath,
   ])
 }
 
-export const MathlibPage = () => {
+export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   const { mode, setMode, theme } = useThemeMode()
   const treemapRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -620,6 +635,8 @@ export const MathlibPage = () => {
   const mathlibFolderRef = useRef<HTMLInputElement>(null)
   const [mathlibPath, setMathlibPath] = useState<string>('')
   const [vscodePath, setVscodePath] = useState<string>('')
+  const vscodeApi = typeof window !== 'undefined' ? window.acquireVsCodeApi?.() ?? null : null
+  const isVscode = !!vscodeApi
   const isTauri = typeof window !== 'undefined' && (
     !!(window as { __TAURI__?: unknown }).__TAURI__ ||
     !!(window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
@@ -662,7 +679,7 @@ export const MathlibPage = () => {
     if (isTauri) {
       try {
         const dialog = await import(/* @vite-ignore */ '@tauri-apps/plugin-dialog')
-        await dialog.message(message, { title: 'Mathlib path needed', type: 'warning' })
+        await dialog.message(message, { title: 'Mathlib path needed', kind: 'warning' })
         return
       } catch (error) {
         console.warn('Failed to show dialog', error)
@@ -670,6 +687,15 @@ export const MathlibPage = () => {
     }
     window.alert(message)
   }
+
+  const openFileTarget = (fullPath: string, link: string) => {
+    if (isVscode) {
+      vscodeApi?.postMessage({ type: 'openFile', path: fullPath })
+      return
+    }
+    void openVscodeLink(link)
+  }
+
   const openVscodeLink = async (link: string) => {
     if (isTauri) {
       try {
@@ -697,7 +723,7 @@ export const MathlibPage = () => {
     tooltipRef,
     colorScale,
     mathlibPath,
-    openVscodeLink,
+    openFileTarget,
     warnMissingMathlibPath,
     isTauri,
     vscodePath,
@@ -745,11 +771,10 @@ export const MathlibPage = () => {
       const event = await import(/* @vite-ignore */ '@tauri-apps/api/event')
       unlisten = await event.listen<UploadedData>('mathlib:treemap-updated', (event) => {
         const payload = event.payload
-        if (payload?.root) {
-          setData(payload.root)
-          setSeriesKeys(payload.seriesKeys ?? Object.keys(payload.root.series ?? {}))
-          setZoomPath([])
-        }
+      if (payload?.root) {
+        setData(payload.root)
+        setSeriesKeys(payload.seriesKeys ?? Object.keys(payload.root.series ?? {}))
+      }
       })
     })()
     return () => {
@@ -807,7 +832,6 @@ export const MathlibPage = () => {
       const built = await buildTreemapFromFiles(files)
       setData(built.root)
       setSeriesKeys(built.seriesKeys)
-      setZoomPath([])
     })()
   }
 
@@ -826,7 +850,6 @@ export const MathlibPage = () => {
           if (result?.root) {
             setData(result.root)
             setSeriesKeys(result.seriesKeys ?? Object.keys(result.root.series ?? {}))
-            setZoomPath([])
           }
           await core.invoke('start_mathlib_watch', { path: selected, debounceMs: 1200 })
         }
@@ -886,6 +909,25 @@ export const MathlibPage = () => {
     return rootNode
   }
 
+  const applyUploadedData = useCallback((parsed: UploadedData) => {
+    if (parsed.root) {
+      setData(parsed.root)
+      setZoomPath([])
+      setSeriesKeys(parsed.seriesKeys ?? Object.keys(parsed.root.series ?? {}))
+      return
+    }
+    if (parsed.entries) {
+      const built = buildTreeFromEntries(parsed.entries)
+      setData(built)
+      setZoomPath([])
+      const keys = new Set<string>()
+      parsed.entries.forEach((entry) => {
+        Object.keys(entry.series ?? {}).forEach((key) => keys.add(key))
+      })
+      setSeriesKeys(Array.from(keys))
+    }
+  }, [])
+
   const handleUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) {
@@ -895,28 +937,36 @@ export const MathlibPage = () => {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result ?? '{}')) as UploadedData
-        if (parsed.root) {
-          setData(parsed.root)
-          setZoomPath([])
-          setSeriesKeys(parsed.seriesKeys ?? Object.keys(parsed.root.series ?? {}))
-          return
-        }
-        if (parsed.entries) {
-          const built = buildTreeFromEntries(parsed.entries)
-          setData(built)
-          setZoomPath([])
-          const keys = new Set<string>()
-          parsed.entries.forEach((entry) => {
-            Object.keys(entry.series ?? {}).forEach((key) => keys.add(key))
-          })
-          setSeriesKeys(Array.from(keys))
-        }
+        applyUploadedData(parsed)
       } catch (error) {
         console.error('Failed to load JSON', error)
       }
     }
     reader.readAsText(file)
   }
+
+  const requestVsCodeJson = () => {
+    vscodeApi?.postMessage({ type: 'pickJson' })
+  }
+
+  useEffect(() => {
+    if (!isVscode) {
+      return
+    }
+    const handler = (event: MessageEvent) => {
+      const message = event.data as { type?: string; text?: string }
+      if (message.type === 'loadJson' && message.text) {
+        try {
+          const parsed = JSON.parse(message.text) as UploadedData
+          applyUploadedData(parsed)
+        } catch (error) {
+          console.error('Failed to parse JSON from VS Code', error)
+        }
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [applyUploadedData, isVscode])
 
   const handleReset = () => {
     setData(defaultData)
@@ -929,73 +979,88 @@ export const MathlibPage = () => {
 
   return (
     <div className={`page theme-${theme}`}>
-      <SiteHeader mode={mode} onModeChange={setMode} />
+      {embedded ? null : <SiteHeader mode={mode} onModeChange={setMode} />}
 
-      <section className="intro">
-        <h1>TR-004 · Repo Metrics Map</h1>
-        <p>Interactive treemap for any repository metrics JSON.</p>
-      </section>
+      {embedded ? null : (
+        <section className="intro">
+          <h1>TR-004 · Repo Metrics Map</h1>
+          <p>Interactive treemap for any repository metrics JSON.</p>
+        </section>
+      )}
 
       <section className="samples">
-        <div className="panel-header">
-          <div>
-            <h2>Section A · Module coverage</h2>
-            <p>Distribution of files and metrics across the loaded dataset.</p>
-          </div>
-        </div>
-        <div className="panel">
-          <p className="treemap-note">
-            Coloring: blue → low, orange → high. Zero values are black in dark mode and white in light mode.
-            Relative mode normalizes within siblings; absolute mode uses raw values.
-          </p>
-        </div>
-        <div className="treemap-menu">
-          <label className="treemap-select">
-            <span>DATA</span>
-            <input type="file" accept="application/json" onChange={handleUpload} />
-          </label>
-          {isTauri ? (
-            <div className="treemap-select">
-              <span>MATHLIB PATH (mathlib)</span>
-              <button
-                className="ghost-button"
-                type="button"
-                onClick={handlePickMathlibFolder}
-              >
-                Choose Folder
-              </button>
-              <button
-                className="ghost-button"
-                type="button"
-                onClick={handleResetMathlibPath}
-              >
-                Reset
-              </button>
-              <input
-                ref={mathlibFolderRef}
-                className="treemap-hidden-input"
-                type="file"
-                onChange={handleMathlibFolderSelect}
-                aria-label="Select mathlib folder"
-              />
-              <span className="treemap-path-preview">
-                {mathlibPath || 'Choose a mathlib folder'}
-              </span>
+        {embedded ? null : (
+          <>
+            <div className="panel-header">
+              <div>
+                <h2>Section A · Module coverage</h2>
+                <p>Distribution of files and metrics across the loaded dataset.</p>
+              </div>
             </div>
-          ) : (
-            <label className="treemap-select">
-              <span>MATHLIB PATH</span>
-              <input
-                type="text"
-                value={vscodePath}
-                onChange={(event) => setVscodePath(event.target.value)}
-                placeholder="/absolute/path/to/mathlib4"
-              />
-            </label>
+            <div className="panel">
+              <p className="treemap-note">
+                Coloring: blue → low, orange → high. Zero values are black in dark mode and white in light mode.
+                Relative mode normalizes within siblings; absolute mode uses raw values.
+              </p>
+            </div>
+          </>
+        )}
+        <div className="treemap-menu">
+          {embedded ? null : (
+            <>
+              <label className="treemap-select">
+                <span>DATA</span>
+                <input type="file" accept="application/json" onChange={handleUpload} />
+              </label>
+              {isVscode ? (
+                <button className="ghost-button" type="button" onClick={requestVsCodeJson}>
+                  OPEN JSON
+                </button>
+              ) : null}
+              {isTauri ? (
+                <div className="treemap-select">
+                  <span>MATHLIB PATH (mathlib)</span>
+                  <button
+                    className="ghost-button"
+                    type="button"
+                    onClick={handlePickMathlibFolder}
+                  >
+                    Choose Folder
+                  </button>
+                  <button
+                    className="ghost-button"
+                    type="button"
+                    onClick={handleResetMathlibPath}
+                  >
+                    Reset
+                  </button>
+                  <input
+                    ref={mathlibFolderRef}
+                    className="treemap-hidden-input"
+                    type="file"
+                    onChange={handleMathlibFolderSelect}
+                    aria-label="Select mathlib folder"
+                  />
+                  <span className="treemap-path-preview">
+                    {mathlibPath || 'Choose a mathlib folder'}
+                  </span>
+                </div>
+              ) : (
+                <label className="treemap-select">
+                  <span>MATHLIB PATH</span>
+                  <input
+                    type="text"
+                    value={vscodePath}
+                    onChange={(event) => setVscodePath(event.target.value)}
+                    placeholder="/absolute/path/to/mathlib4"
+                  />
+                </label>
+              )}
+              <button className="ghost-button" onClick={handleReset}>
+                RESET DEFAULT
+              </button>
+            </>
           )}
-          <button className="ghost-button" onClick={handleReset}>
-            RESET DEFAULT
-          </button>
           <label className="treemap-select">
             <span>SIZE</span>
             <select
@@ -1056,20 +1121,21 @@ export const MathlibPage = () => {
         </div>
       </section>
 
-      <section className="samples">
-        <div className="panel-header">
-          <div>
-            <h2>Section B · JSON format</h2>
-            <p>Load local metrics using a simple tree schema or a flat entries list.</p>
+      {embedded ? null : (
+        <section className="samples">
+          <div className="panel-header">
+            <div>
+              <h2>Section B · JSON format</h2>
+              <p>Load local metrics using a simple tree schema or a flat entries list.</p>
+            </div>
           </div>
-        </div>
-        <div className="panel">
-          <div className="code-block-header">
-            <h3>Tree schema</h3>
-            <button
-              className="ghost-button"
-              onClick={() => {
-                void navigator.clipboard.writeText(`{
+          <div className="panel">
+            <div className="code-block-header">
+              <h3>Tree schema</h3>
+              <button
+                className="ghost-button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(`{
   "root": {
     "name": "Demo",
     "series": { "foo": 210, "bar": 9 },
@@ -1087,12 +1153,12 @@ export const MathlibPage = () => {
   },
   "seriesKeys": ["foo", "bar"]
 }`)
-              }}
-            >
-              COPY
-            </button>
-          </div>
-          <pre className="code-block">{`{
+                }}
+              >
+                COPY
+              </button>
+            </div>
+            <pre className="code-block">{`{
   "root": {
     "name": "Demo",
     "series": { "foo": 210, "bar": 9 },
@@ -1110,32 +1176,33 @@ export const MathlibPage = () => {
   },
   "seriesKeys": ["foo", "bar"]
 }`}</pre>
-          <div className="code-block-header">
-            <h3>Entries schema</h3>
-            <button
-              className="ghost-button"
-              onClick={() => {
-                void navigator.clipboard.writeText(`{
+            <div className="code-block-header">
+              <h3>Entries schema</h3>
+              <button
+                className="ghost-button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(`{
   "entries": [
     { "path": "Demo/Core/Basics.lean", "series": { "foo": 90, "bar": 4 } },
     { "path": "Demo/Core/Logic.lean", "series": { "foo": 60, "bar": 2 } },
     { "path": "Demo/Extras", "series": { "foo": 60, "bar": 3 } }
   ]
 }`)
-              }}
-            >
-              COPY
-            </button>
-          </div>
-          <pre className="code-block">{`{
+                }}
+              >
+                COPY
+              </button>
+            </div>
+            <pre className="code-block">{`{
   "entries": [
     { "path": "Demo/Core/Basics.lean", "series": { "foo": 90, "bar": 4 } },
     { "path": "Demo/Core/Logic.lean", "series": { "foo": 60, "bar": 2 } },
     { "path": "Demo/Extras", "series": { "foo": 60, "bar": 3 } }
   ]
 }`}</pre>
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
     </div>
   )
 }

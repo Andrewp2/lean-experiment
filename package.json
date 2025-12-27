@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "vscode:dev": "npm run build && node vscode-extension/scripts/copy-webview.js && npm --prefix vscode-extension run compile",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"

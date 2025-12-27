@@ -1,0 +1,34 @@
+{
+  "name": "mathlib-treemap",
+  "displayName": "Mathlib Treemap",
+  "description": "View Mathlib metrics as a treemap inside VS Code.",
+  "version": "0.0.1",
+  "publisher": "andrewp2",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Visualization"
+  ],
+  "activationEvents": [
+    "onCommand:leanExperiment.openTreemap"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "leanExperiment.openTreemap",
+        "title": "Lean Experiment: Open Mathlib Treemap"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -p ./ -w",
+    "copy-webview": "node ./scripts/copy-webview.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.5.3"
+  }
+}

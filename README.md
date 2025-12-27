@@ -38,6 +38,25 @@ Build for production:
 npm run build
 ```
 
+## VS Code extension (treemap)
+
+Build the webview bundle and copy it into the extension:
+
+```shell
+npm run build
+node vscode-extension/scripts/copy-webview.js
+```
+
+Compile the extension:
+
+```shell
+cd vscode-extension
+npm install
+npm run compile
+```
+
+In VS Code, run the command `Lean Experiment: Open Mathlib Treemap`.
+
 ## Desktop (Tauri)
 
 Ubuntu 24.04 dependencies (from the Tauri docs):

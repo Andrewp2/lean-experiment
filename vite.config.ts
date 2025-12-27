@@ -129,6 +129,7 @@ export default defineConfig({
         tactics: resolve(__dirname, 'tactics.html'),
         visualizer: resolve(__dirname, 'visualizer.html'),
         mathlib: resolve(__dirname, 'mathlib.html'),
+        'mathlib-vscode': resolve(__dirname, 'mathlib-vscode.html'),
       },
     },
   },
