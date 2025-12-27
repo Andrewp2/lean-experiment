@@ -1,21 +1,70 @@
-# React + TypeScript + Vite
+# Lean Experiment
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Lean Experiment is a small lab for exploring Lean tooling UX. It ships a proof walkthrough generator (LLM-backed),
+an interactive Mathlib treemap, and reference/visualization pages that experiment with how proof state can be taught
+and inspected.
 
-While this project uses React, Vite supports many popular JS frameworks. [See all the supported frameworks](https://vitejs.dev/guide/#scaffolding-your-first-vite-project).
+## What’s inside
 
-## Deploy Your Own
+- Proof walkthrough generator: paste a Lean proof and get a step-by-step explanation from an LLM.
+- Mathlib treemap: D3 visualization of Mathlib file metrics, with local folder scanning support in the Tauri app.
+- Tactic reference: quick lookup table of common Lean tactics and examples.
+- Visualizer scaffold: mock UI for goal-state graphs, tactic timelines, and dependency views.
 
-Deploy your own Vite project with Vercel.
+## Project layout
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/examples/tree/main/framework-boilerplates/vite-react&template=vite-react)
+- `src/App.tsx`: main proof walkthrough UI.
+- `src/pages/MathlibPage.tsx`: treemap visualization and Mathlib scanner.
+- `src/pages/TacticsPage.tsx`: tactic reference page.
+- `src/pages/VisualizerPage.tsx`: proof-state visualizer scaffold.
+- `api/`: Vercel serverless endpoints, including `/api/explain` and Lean session proxy stubs.
 
-_Live Example: https://vite-react-example.vercel.app_
+## Requirements
 
-### Deploying From Your Terminal
+- Node.js + npm
+- `OPENAI_API_KEY` for `/api/explain` (used by the walkthrough generator)
 
-You can deploy your new Vite project with a single command from your terminal using [Vercel CLI](https://vercel.com/download):
+## Local development
+
+Run the dev server:
 
 ```shell
-$ vercel
+npm run dev
 ```
+
+Build for production:
+
+```shell
+npm run build
+```
+
+## Desktop (Tauri)
+
+Ubuntu 24.04 dependencies (from the Tauri docs):
+
+```shell
+sudo apt update
+sudo apt install libwebkit2gtk-4.1-dev \
+  build-essential \
+  curl \
+  wget \
+  file \
+  libxdo-dev \
+  libssl-dev \
+  libayatana-appindicator3-dev \
+  librsvg2-dev
+```
+
+Start the desktop app in dev mode:
+
+```shell
+npm run tauri:dev
+```
+
+Build the desktop app:
+
+```shell
+npm run tauri:build
+```
+
+If you want to build without running the dev server, use `npm run tauri:build`.

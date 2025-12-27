@@ -211,6 +211,11 @@
   color: var(--fl-cyan);
 }
 
+.treemap-select:hover .ghost-button:not(:hover) {
+  border-color: var(--border-strong);
+  color: inherit;
+}
+
 .status-chip {
   border: 1px solid var(--border-strong);
   padding: 4px 8px;
@@ -427,11 +432,26 @@
   font-family: inherit;
 }
 
+.theme-reticle {
+  color-scheme: dark;
+}
+
 .treemap-select input[type="file"] {
   color: var(--ink);
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.treemap-hidden-input {
+  display: none;
+}
+
+.treemap-path-preview {
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.7rem;
 }
 
 .treemap-select input[type="text"] {
@@ -537,8 +557,11 @@
 }
 
 .treemap-parent {
-  fill: none;
   stroke-width: 1.5px;
+}
+
+.treemap-parent.is-folder {
+  fill: none;
 }
 
 .treemap-parent-label {
@@ -680,6 +703,31 @@
   stroke-width: 2px;
 }
 
+.theme-reticle .treemap-select select,
+.theme-reticle .treemap-select option {
+  background: #000000;
+  color: #ffffff;
+}
+
+.theme-reticle .treemap-select select {
+  border: 1px solid #333333;
+  padding: 4px 28px 4px 8px;
+}
+
+.theme-reticle .treemap-select input[type="file"]::file-selector-button {
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #333333;
+  padding: 4px 8px;
+}
+
+.theme-reticle .treemap-select input[type="file"]::-webkit-file-upload-button {
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #333333;
+  padding: 4px 8px;
+}
+
 .theme-toggle .ghost-button.active {
   border-color: var(--fl-cyan);
   color: var(--fl-cyan);
@@ -689,6 +737,11 @@
 .theme-reticle .ghost-button:hover {
   border-color: var(--fl-cyan);
   color: var(--fl-cyan);
+}
+
+.theme-reticle .treemap-select:hover .ghost-button:not(:hover) {
+  border-color: #666666;
+  color: #ffffff;
 }
 
 .table-action {

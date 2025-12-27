@@ -38,6 +38,7 @@ const extractText = (data: any) => {
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: './',
   plugins: [
     react(),
     {
@@ -130,5 +131,9 @@ export default defineConfig({
         mathlib: resolve(__dirname, 'mathlib.html'),
       },
     },
+  },
+  server: {
+    port: 1421,
+    strictPort: true,
   },
 })

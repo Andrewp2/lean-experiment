@@ -24,7 +24,237 @@ type UploadedData = {
   entries?: UploadedEntry[]
 }
 type ColorMode = 'absolute' | 'relative'
-type PortingScale = { low: string; high: string }
+type ColorScale = { low: string; high: string }
+
+type BuildNode = {
+  name: string
+  path: string
+  children: Map<string, BuildNode>
+  size: number
+  count: number
+  loc: number
+  commentLines: number
+  codeLines: number
+  portingNotes: number
+  adaptationNotes: number
+  noteTotal: number
+}
+
+const MAX_DEPTH = 5
+const MIN_PERCENT = 0.01
+const GROUP_BY = 'loc'
+const portingNoteRegex = /porting[\s_-]*note/gi
+const adaptationNoteRegex = /#adaptation_note\b/gi
+
+const analyzeLeanContent = (content: string) => {
+  const lines = content.split(/\r\n|\r|\n/)
+  const loc = lines.length
+  const portingNotes = Array.from(content.matchAll(portingNoteRegex)).length
+  const adaptationNotes = Array.from(content.matchAll(adaptationNoteRegex)).length
+  let commentLines = 0
+  let inBlock = false
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (inBlock) {
+      commentLines += 1
+      if (trimmed.includes('-/')) {
+        inBlock = false
+      }
+      continue
+    }
+    if (trimmed.startsWith('--')) {
+      commentLines += 1
+      continue
+    }
+    if (trimmed.includes('/-')) {
+      commentLines += 1
+      if (!trimmed.includes('-/')) {
+        inBlock = true
+      }
+    }
+  }
+  const codeLines = Math.max(0, loc - commentLines)
+  return {
+    loc,
+    commentLines,
+    codeLines,
+    portingNotes,
+    adaptationNotes,
+    noteTotal: portingNotes + adaptationNotes,
+  }
+}
+
+const makeRootNode = (): BuildNode => ({
+  name: 'Mathlib',
+  path: 'Mathlib',
+  children: new Map<string, BuildNode>(),
+  size: 0,
+  count: 0,
+  loc: 0,
+  commentLines: 0,
+  codeLines: 0,
+  portingNotes: 0,
+  adaptationNotes: 0,
+  noteTotal: 0,
+})
+
+const addBuildFile = (
+  root: BuildNode,
+  relativePath: string,
+  size: number,
+  metrics: ReturnType<typeof analyzeLeanContent>,
+) => {
+  const parts = relativePath.split('/').filter(Boolean)
+  if (parts[0] === 'Mathlib') {
+    parts.shift()
+  }
+  const fileName = parts.pop()
+  if (!fileName) {
+    return
+  }
+  const baseName = fileName.replace(/\.lean$/, '')
+  const segments = [...parts, baseName].filter(Boolean)
+  const depth = Math.min(segments.length, MAX_DEPTH)
+
+  let node = root
+  node.size += size
+  node.count += 1
+  node.loc += metrics.loc
+  node.commentLines += metrics.commentLines
+  node.codeLines += metrics.codeLines
+  node.portingNotes += metrics.portingNotes
+  node.adaptationNotes += metrics.adaptationNotes
+  node.noteTotal += metrics.noteTotal
+
+  for (let i = 0; i < depth; i += 1) {
+    const name = segments[i]
+    let child = node.children.get(name)
+    if (!child) {
+      child = {
+        name,
+        path: node.path ? `${node.path}/${name}` : name,
+        children: new Map<string, BuildNode>(),
+        size: 0,
+        count: 0,
+        loc: 0,
+        commentLines: 0,
+        codeLines: 0,
+        portingNotes: 0,
+        adaptationNotes: 0,
+        noteTotal: 0,
+      }
+      node.children.set(name, child)
+    }
+    child.size += size
+    child.count += 1
+    child.loc += metrics.loc
+    child.commentLines += metrics.commentLines
+    child.codeLines += metrics.codeLines
+    child.portingNotes += metrics.portingNotes
+    child.adaptationNotes += metrics.adaptationNotes
+    child.noteTotal += metrics.noteTotal
+    node = child
+  }
+}
+
+const sumSeriesValue = (node: TreemapNode, key: string): number => {
+  const current = node.series?.[key]
+  if (typeof current === 'number') {
+    return current
+  }
+  return (node.children ?? []).reduce((sum, child) => sum + sumSeriesValue(child, key), 0)
+}
+
+const normalizeNode = (node: TreemapNode): TreemapNode => {
+  if (!node.children || node.children.length === 0) {
+    return node
+  }
+  const normalizedChildren = node.children.map(normalizeNode)
+  const key = node.series?.[GROUP_BY] !== undefined ? GROUP_BY : 'bytes'
+  const total = normalizedChildren.reduce((sum, child) => sum + sumSeriesValue(child, key), 0)
+  if (total === 0) {
+    return { ...node, children: normalizedChildren }
+  }
+  const keep: TreemapNode[] = []
+  const otherChildren: TreemapNode[] = []
+  for (const child of normalizedChildren) {
+    const childValue = sumSeriesValue(child, key)
+    if (childValue / total < MIN_PERCENT) {
+      otherChildren.push(child)
+    } else {
+      keep.push(child)
+    }
+  }
+  if (otherChildren.length === 0 || keep.length === 0) {
+    return { ...node, children: normalizedChildren }
+  }
+  const seriesKeys = new Set<string>()
+  for (const child of otherChildren) {
+    Object.keys(child.series ?? {}).forEach((seriesKey) => seriesKeys.add(seriesKey))
+  }
+  const otherSeries: Record<string, number> = {}
+  for (const seriesKey of seriesKeys) {
+    otherSeries[seriesKey] = otherChildren.reduce(
+      (sum, child) => sum + sumSeriesValue(child, seriesKey),
+      0,
+    )
+  }
+  const otherNode: TreemapNode = normalizeNode({
+    name: 'Miscellaneous',
+    path: node.path ? `${node.path}/Miscellaneous` : 'Miscellaneous',
+    children: otherChildren,
+    series: otherSeries,
+  })
+  return { ...node, children: [...keep, otherNode] }
+}
+
+const buildTreemapFromFiles = async (files: FileList) => {
+  const root = makeRootNode()
+  const firstRelative = Array.from(files)[0]?.webkitRelativePath?.replace(/\\/g, '/') ?? ''
+  const baseFolder = firstRelative.includes('/') ? firstRelative.split('/')[0] : ''
+  const readFiles = Array.from(files)
+    .filter((file) => file.name.endsWith('.lean'))
+    .map(async (file) => {
+      const content = await file.text()
+      const metrics = analyzeLeanContent(content)
+      const rawPath = (file.webkitRelativePath || file.name).replace(/\\/g, '/')
+      const relativePath = baseFolder && rawPath.startsWith(`${baseFolder}/`)
+        ? rawPath.slice(baseFolder.length + 1)
+        : rawPath
+      addBuildFile(root, relativePath, file.size, metrics)
+    })
+  await Promise.all(readFiles)
+
+  const toTreemapNode = (node: BuildNode): TreemapNode => {
+    const children = Array.from(node.children.values()).map(toTreemapNode)
+    const commentRatio = node.codeLines > 0 ? node.commentLines / node.codeLines : 0
+    return {
+      name: node.name,
+      path: node.path,
+      children: children.length > 0 ? children : undefined,
+      series: {
+        bytes: node.size,
+        file_count: node.count,
+        loc: node.loc,
+        comment_lines: node.commentLines,
+        code_lines: node.codeLines,
+        comment_ratio: commentRatio,
+        porting_notes: node.portingNotes,
+        adaptation_notes: node.adaptationNotes,
+        notes_total: node.noteTotal,
+      },
+    }
+  }
+
+  const outputRoot = normalizeNode(toTreemapNode(root))
+  const seriesKeys = new Set<string>()
+  const collectKeys = (node: TreemapNode) => {
+    Object.keys(node.series ?? {}).forEach((key) => seriesKeys.add(key))
+    node.children?.forEach(collectKeys)
+  }
+  collectKeys(outputRoot)
+  return { root: outputRoot, seriesKeys: Array.from(seriesKeys).sort() }
+}
 
 const useTreemap = (
   containerRef: React.RefObject<HTMLDivElement>,
@@ -38,8 +268,11 @@ const useTreemap = (
   colors: string[],
   hoveredGroup: string | null,
   tooltipRef: React.RefObject<HTMLDivElement>,
-  portingScale: PortingScale,
+  colorScale: ColorScale,
   mathlibPath: string,
+  openVscodeLink: (link: string, fallbackPath?: string) => void,
+  isTauri: boolean,
+  vscodePath: string,
 ) => {
   useEffect(() => {
     const container = containerRef.current
@@ -150,10 +383,10 @@ const useTreemap = (
           : valueForSeries(child.data, colorSeries)
       )),
     )
-    const portingScaleFn = d3
+    const colorScaleFn = d3
       .scaleLinear<string>()
       .domain([0, colorMax || 1])
-      .range([portingScale.low, portingScale.high])
+      .range([colorScale.low, colorScale.high])
 
     const fillForNode = (
       node: d3.HierarchyRectangularNode<TreemapNode>,
@@ -168,7 +401,7 @@ const useTreemap = (
       if (!Number.isFinite(seriesValue)) {
         return color(fallbackName)
       }
-      return portingScaleFn(seriesValue)
+      return colorScaleFn(seriesValue)
     }
 
     const setTooltip = (
@@ -198,7 +431,8 @@ const useTreemap = (
 
     const parentNodes = tiledRoot.descendants().filter((d) => d.depth === 1)
     const childNodes = tiledRoot.descendants().filter((d) => d.depth === 2)
-    const normalizedBasePath = mathlibPath.trim().replace(/\/+$/, '')
+    const basePath = isTauri ? mathlibPath : vscodePath
+    const normalizedBasePath = basePath.trim().replace(/\/+$/, '')
     const buildVscodeLink = (node: d3.HierarchyRectangularNode<TreemapNode>) => {
       if (!normalizedBasePath) {
         return null
@@ -221,9 +455,21 @@ const useTreemap = (
       .attr('class', 'treemap-rect treemap-parent')
       .classed('is-leaf', (d) => !!d.data.isLeaf)
       .classed('is-folder', (d) => !d.data.isLeaf)
-      .attr('fill', (d) => (d.data.isLeaf ? fillForNode(d, d.data.name) : 'none'))
+      .attr('fill', (d) => fillForNode(d, d.data.name))
+
       .attr('data-group', (d) => d.data.name)
       .on('click', (_, d) => {
+        if (d.data.isLeaf) {
+          const link = buildVscodeLink(d)
+          if (link) {
+            void openVscodeLink(link, d.data.path)
+            return
+          }
+          if (!isTauri) {
+            void openVscodeLink('about:blank', d.data.path)
+            return
+          }
+        }
         setZoomPath([...zoomPath, d.data.name])
       })
       .on('mouseover', function () {
@@ -251,6 +497,23 @@ const useTreemap = (
       .text((d) => d.data.name)
 
     const nodes = svg.selectAll('g.child').data(childNodes).enter().append('g').attr('class', 'child')
+
+    const clipId = (_: d3.HierarchyRectangularNode<TreemapNode>, i: number) => (
+      `treemap-clip-${sizeSeries}-${i}`
+    )
+    const defs = svg.append('defs')
+    defs
+      .selectAll('clipPath')
+      .data(childNodes)
+      .enter()
+      .append('clipPath')
+      .attr('id', clipId)
+      .attr('clipPathUnits', 'userSpaceOnUse')
+      .append('rect')
+      .attr('x', (d) => d.x0 + 2)
+      .attr('y', (d) => d.y0 + 2)
+      .attr('width', (d) => Math.max(0, d.x1 - d.x0 - 4))
+      .attr('height', (d) => Math.max(0, d.y1 - d.y0 - 4))
     nodes
       .append('rect')
       .attr('x', (d) => d.x0)
@@ -266,7 +529,11 @@ const useTreemap = (
         if (d.data.isLeaf) {
           const link = buildVscodeLink(d)
           if (link) {
-            window.location.href = link
+            void openVscodeLink(link, d.data.path)
+            return
+          }
+          if (!isTauri) {
+            void openVscodeLink('about:blank', d.data.path)
             return
           }
         }
@@ -294,22 +561,16 @@ const useTreemap = (
       })
 
     nodes
-      .append('clipPath')
-      .attr('id', (_, i) => `treemap-clip-${sizeSeries}-${i}`)
-      .append('rect')
-      .attr('x', (d) => d.x0 + 2)
-      .attr('y', (d) => d.y0 + 2)
-      .attr('width', (d) => Math.max(0, d.x1 - d.x0 - 4))
-      .attr('height', (d) => Math.max(0, d.y1 - d.y0 - 4))
-
-    nodes
       .append('text')
       .attr('x', (d) => d.x0 + 6)
-      .attr('y', (d) => d.y0 + 16)
+      .attr('y', (d) => d.y0 + 6)
       .attr('class', 'treemap-label')
-      .attr('clip-path', (_, i) => `url(#treemap-clip-${sizeSeries}-${i})`)
+      .attr('dominant-baseline', 'hanging')
+      .attr('clip-path', (d, i) => `url(#${clipId(d, i)})`)
       .text((d) => d.data.name)
-      .style('display', 'block')
+      .style('display', (d) => (
+        (d.x1 - d.x0 < 28 || d.y1 - d.y0 < 14) ? 'none' : 'block'
+      ))
 
     if (hoveredGroup) {
       svg
@@ -333,8 +594,11 @@ const useTreemap = (
     colors,
     hoveredGroup,
     tooltipRef,
-    portingScale,
+    colorScale,
     mathlibPath,
+    openVscodeLink,
+    isTauri,
+    vscodePath,
   ])
 }
 
@@ -356,9 +620,13 @@ export const MathlibPage = () => {
   const [colorMode, setColorMode] = useState<ColorMode>('absolute')
   const [zoomPath, setZoomPath] = useState<string[]>([])
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null)
-  const [mathlibPath, setMathlibPath] = useState<string>(() => (
-    typeof window === 'undefined' ? '' : (window.localStorage.getItem('mathlibPath') ?? '')
-  ))
+  const mathlibFolderRef = useRef<HTMLInputElement>(null)
+  const [mathlibPath, setMathlibPath] = useState<string>('')
+  const [vscodePath, setVscodePath] = useState<string>('')
+  const isTauri = typeof window !== 'undefined' && (
+    !!(window as { __TAURI__?: unknown }).__TAURI__ ||
+    !!(window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
+  )
   const pastel = [
     '#ffd8be',
     '#cde7f0',
@@ -388,9 +656,22 @@ export const MathlibPage = () => {
     '#57412a',
   ]
   const palette = theme === 'reticle' ? pastelDark : pastel
-  const portingScale = theme === 'reticle'
+  const colorScale = theme === 'reticle'
     ? { low: '#3d7cc8', high: '#c9773a' }
     : { low: '#2d72c4', high: '#e38c4a' }
+
+  const openVscodeLink = async (link: string, fallbackPath?: string) => {
+    if (isTauri) {
+      try {
+        const core = await import(/* @vite-ignore */ '@tauri-apps/api/core')
+        await core.invoke('open_external', { url: link })
+      } catch (error) {
+        console.warn('Failed to open external link', error)
+      }
+      return
+    }
+    window.location.href = link
+  }
 
   useTreemap(
     treemapRef,
@@ -404,8 +685,11 @@ export const MathlibPage = () => {
     palette,
     hoveredGroup,
     tooltipRef,
-    portingScale,
+    colorScale,
     mathlibPath,
+    openVscodeLink,
+    isTauri,
+    vscodePath,
   )
 
   useEffect(() => {
@@ -423,8 +707,142 @@ export const MathlibPage = () => {
     if (typeof window === 'undefined') {
       return
     }
-    window.localStorage.setItem('mathlibPath', mathlibPath)
-  }, [mathlibPath])
+    if (isTauri) {
+      setMathlibPath(window.localStorage.getItem('mathlibPath') ?? '')
+    } else {
+      setVscodePath(window.localStorage.getItem('vscodePath') ?? '')
+    }
+  }, [isTauri])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    if (isTauri) {
+      window.localStorage.setItem('mathlibPath', mathlibPath)
+    } else {
+      window.localStorage.setItem('vscodePath', vscodePath)
+    }
+  }, [mathlibPath, vscodePath, isTauri])
+
+  useEffect(() => {
+    if (!isTauri) {
+      return
+    }
+    let unlisten: (() => void) | null = null
+    void (async () => {
+      const event = await import(/* @vite-ignore */ '@tauri-apps/api/event')
+      unlisten = await event.listen<UploadedData>('mathlib:treemap-updated', (event) => {
+        const payload = event.payload
+        if (payload?.root) {
+          setData(payload.root)
+          setSeriesKeys(payload.seriesKeys ?? Object.keys(payload.root.series ?? {}))
+          setZoomPath([])
+        }
+      })
+    })()
+    return () => {
+      if (unlisten) {
+        unlisten()
+      }
+      void (async () => {
+        try {
+          const core = await import(/* @vite-ignore */ '@tauri-apps/api/core')
+          await core.invoke('stop_mathlib_watch')
+        } catch (error) {
+          console.warn('Failed to stop mathlib watch', error)
+        }
+      })()
+    }
+  }, [isTauri])
+
+  useEffect(() => {
+    if (!mathlibFolderRef.current) {
+      return
+    }
+    mathlibFolderRef.current.setAttribute('webkitdirectory', '')
+    mathlibFolderRef.current.setAttribute('directory', '')
+  }, [])
+
+  const getMathlibFolderFromFiles = (files: FileList | null) => {
+    if (!files || files.length === 0) {
+      return ''
+    }
+    const first = files[0] as File & { path?: string; webkitRelativePath?: string }
+    const relativePath = (first.webkitRelativePath ?? '').replace(/\\/g, '/')
+    const nativePath = first.path ? first.path.replace(/\\/g, '/') : ''
+    if (nativePath && relativePath && nativePath.endsWith(relativePath)) {
+      return nativePath.slice(0, nativePath.length - relativePath.length).replace(/\/+$/, '')
+    }
+    if (nativePath) {
+      return nativePath.replace(/\/[^/]+$/, '')
+    }
+    if (relativePath) {
+      return relativePath.split('/')[0]
+    }
+    return ''
+  }
+
+  const handleMathlibFolderSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || files.length === 0) {
+      return
+    }
+    const nextPath = getMathlibFolderFromFiles(files)
+    if (nextPath) {
+      setMathlibPath(nextPath)
+    }
+    void (async () => {
+      const built = await buildTreemapFromFiles(files)
+      setData(built.root)
+      setSeriesKeys(built.seriesKeys)
+      setZoomPath([])
+    })()
+  }
+
+  const handlePickMathlibFolder = async () => {
+    try {
+      if (isTauri) {
+        const dialog = await import(/* @vite-ignore */ '@tauri-apps/plugin-dialog')
+        const selected = await dialog.open({
+          directory: true,
+          multiple: false,
+        })
+        if (typeof selected === 'string') {
+          setMathlibPath(selected)
+          const core = await import(/* @vite-ignore */ '@tauri-apps/api/core')
+          const result = await core.invoke<UploadedData>('scan_mathlib', { path: selected })
+          if (result?.root) {
+            setData(result.root)
+            setSeriesKeys(result.seriesKeys ?? Object.keys(result.root.series ?? {}))
+            setZoomPath([])
+          }
+          await core.invoke('start_mathlib_watch', { path: selected, debounceMs: 1200 })
+        }
+        return
+      }
+      mathlibFolderRef.current?.click()
+    } catch (error) {
+      console.warn('Folder picker unavailable', error)
+    }
+  }
+
+  const handleResetMathlibPath = () => {
+    setMathlibPath('')
+    setData(defaultData)
+    setSeriesKeys(defaultSeriesKeys)
+    setZoomPath([])
+    if (isTauri) {
+      void (async () => {
+        try {
+          const core = await import(/* @vite-ignore */ '@tauri-apps/api/core')
+          await core.invoke('stop_mathlib_watch')
+        } catch (error) {
+          console.warn('Failed to stop mathlib watch', error)
+        }
+      })()
+    }
+  }
 
   const buildTreeFromEntries = (entries: UploadedEntry[]): TreemapNode => {
     const rootName = entries[0]?.path.split('/').filter(Boolean)[0] ?? 'Root'
@@ -525,15 +943,45 @@ export const MathlibPage = () => {
             <span>DATA</span>
             <input type="file" accept="application/json" onChange={handleUpload} />
           </label>
-          <label className="treemap-select">
-            <span>MATHLIB PATH</span>
-            <input
-              type="text"
-              value={mathlibPath}
-              onChange={(event) => setMathlibPath(event.target.value)}
-              placeholder="/path/to/mathlib4"
-            />
-          </label>
+          {isTauri ? (
+            <div className="treemap-select">
+              <span>MATHLIB PATH (mathlib)</span>
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={handlePickMathlibFolder}
+              >
+                Choose Folder
+              </button>
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={handleResetMathlibPath}
+              >
+                Reset
+              </button>
+              <input
+                ref={mathlibFolderRef}
+                className="treemap-hidden-input"
+                type="file"
+                onChange={handleMathlibFolderSelect}
+                aria-label="Select mathlib folder"
+              />
+              <span className="treemap-path-preview">
+                {mathlibPath || 'Choose a mathlib folder'}
+              </span>
+            </div>
+          ) : (
+            <label className="treemap-select">
+              <span>MATHLIB PATH</span>
+              <input
+                type="text"
+                value={vscodePath}
+                onChange={(event) => setVscodePath(event.target.value)}
+                placeholder="/absolute/path/to/mathlib4"
+              />
+            </label>
+          )}
           <button className="ghost-button" onClick={handleReset}>
             RESET DEFAULT
           </button>
