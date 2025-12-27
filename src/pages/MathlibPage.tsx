@@ -660,7 +660,7 @@ export const MathlibPage = () => {
     ? { low: '#3d7cc8', high: '#c9773a' }
     : { low: '#2d72c4', high: '#e38c4a' }
 
-  const openVscodeLink = async (link: string, fallbackPath?: string) => {
+  const openVscodeLink = async (link: string) => {
     if (isTauri) {
       try {
         const core = await import(/* @vite-ignore */ '@tauri-apps/api/core')
