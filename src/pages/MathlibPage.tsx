@@ -270,7 +270,8 @@ const useTreemap = (
   tooltipRef: React.RefObject<HTMLDivElement>,
   colorScale: ColorScale,
   mathlibPath: string,
-  openVscodeLink: (link: string, fallbackPath?: string) => void,
+  openVscodeLink: (link: string) => void,
+  warnMissingMathlibPath: () => void,
   isTauri: boolean,
   vscodePath: string,
 ) => {
@@ -462,13 +463,11 @@ const useTreemap = (
         if (d.data.isLeaf) {
           const link = buildVscodeLink(d)
           if (link) {
-            void openVscodeLink(link, d.data.path)
-            return
+            void openVscodeLink(link)
+          } else {
+            void warnMissingMathlibPath()
           }
-          if (!isTauri) {
-            void openVscodeLink('about:blank', d.data.path)
-            return
-          }
+          return
         }
         setZoomPath([...zoomPath, d.data.name])
       })
@@ -529,13 +528,11 @@ const useTreemap = (
         if (d.data.isLeaf) {
           const link = buildVscodeLink(d)
           if (link) {
-            void openVscodeLink(link, d.data.path)
-            return
+            void openVscodeLink(link)
+          } else {
+            void warnMissingMathlibPath()
           }
-          if (!isTauri) {
-            void openVscodeLink('about:blank', d.data.path)
-            return
-          }
+          return
         }
         const parent = d.parent?.data.name
         if (parent) {
@@ -660,6 +657,19 @@ export const MathlibPage = () => {
     ? { low: '#3d7cc8', high: '#c9773a' }
     : { low: '#2d72c4', high: '#e38c4a' }
 
+  const warnMissingMathlibPath = async () => {
+    const message = 'Set a Mathlib path to open files directly in VS Code.'
+    if (isTauri) {
+      try {
+        const dialog = await import(/* @vite-ignore */ '@tauri-apps/plugin-dialog')
+        await dialog.message(message, { title: 'Mathlib path needed', type: 'warning' })
+        return
+      } catch (error) {
+        console.warn('Failed to show dialog', error)
+      }
+    }
+    window.alert(message)
+  }
   const openVscodeLink = async (link: string) => {
     if (isTauri) {
       try {
@@ -688,6 +698,7 @@ export const MathlibPage = () => {
     colorScale,
     mathlibPath,
     openVscodeLink,
+    warnMissingMathlibPath,
     isTauri,
     vscodePath,
   )
