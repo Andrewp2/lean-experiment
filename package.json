@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:all": "npm run build && npm --prefix vscode-extension run copy-webview && npm --prefix vscode-extension run compile && npm run tauri:build",
     "lint": "eslint .",
     "preview": "vite preview",
     "vscode:dev": "npm run build && node vscode-extension/scripts/copy-webview.js && npm --prefix vscode-extension run compile",

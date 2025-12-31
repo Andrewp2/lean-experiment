@@ -6,7 +6,7 @@
   "build": {
     "beforeBuildCommand": "npm run build",
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1421/mathlib.html",
+    "devUrl": "http://localhost:1421/pages/mathlib.html",
     "frontendDist": "../dist"
   },
   "app": {
@@ -16,7 +16,7 @@
         "title": "Mathlib Treemap",
         "width": 1280,
         "height": 900,
-        "url": "mathlib.html"
+        "url": "pages/mathlib.html"
       }
     ],
     "security": {

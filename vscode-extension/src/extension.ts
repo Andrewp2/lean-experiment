@@ -32,7 +32,7 @@ type BuildNode = {
 }
 
 const WEBVIEW_DIST = 'media'
-const WEBVIEW_ENTRY = 'mathlib-vscode.html'
+const WEBVIEW_ENTRY = 'pages/mathlib-vscode.html'
 const MAX_DEPTH = 5
 const MIN_PERCENT = 0.01
 const GROUP_BY = 'loc'

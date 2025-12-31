@@ -5,9 +5,9 @@ type SiteHeaderProps = {
 
 const navItems = [
   { href: '/', label: 'Proof walkthroughs' },
-  { href: '/tactics.html', label: 'Tactic reference' },
-  { href: '/visualizer.html', label: 'Proof visualizer' },
-  { href: '/mathlib.html', label: 'Mathlib treemap' },
+  { href: '/pages/tactics.html', label: 'Tactic reference' },
+  { href: '/pages/visualizer.html', label: 'Proof visualizer' },
+  { href: '/pages/mathlib.html', label: 'Mathlib treemap' },
 ]
 
 export const SiteHeader = ({ mode, onModeChange }: SiteHeaderProps) => (

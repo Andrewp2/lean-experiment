@@ -126,10 +126,10 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        tactics: resolve(__dirname, 'tactics.html'),
-        visualizer: resolve(__dirname, 'visualizer.html'),
-        mathlib: resolve(__dirname, 'mathlib.html'),
-        'mathlib-vscode': resolve(__dirname, 'mathlib-vscode.html'),
+        'pages/tactics': resolve(__dirname, 'pages/tactics.html'),
+        'pages/visualizer': resolve(__dirname, 'pages/visualizer.html'),
+        'pages/mathlib': resolve(__dirname, 'pages/mathlib.html'),
+        'pages/mathlib-vscode': resolve(__dirname, 'pages/mathlib-vscode.html'),
       },
     },
   },

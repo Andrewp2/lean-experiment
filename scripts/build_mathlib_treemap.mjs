@@ -9,6 +9,8 @@ const minPercent = Number(process.env.MIN_PERCENT ?? '0.01')
 const outputPath =
   process.argv[3] || path.join(projectRoot, 'src', 'assets', 'mathlib_treemap.json')
 const groupByKey = process.env.GROUP_BY ?? 'loc'
+const infotreeRoot = process.env.INFOTREE_ROOT || process.argv[4] || ''
+const infotreeExt = process.env.INFOTREE_EXT || '.json'
 
 if (!mathlibPath) {
   console.error('Provide Mathlib path via MATHLIB_PATH or as the first argument.')
@@ -31,13 +33,88 @@ const root = {
   portingNotes: 0,
   adaptationNotes: 0,
   noteTotal: 0,
+  infotreeNodesTotal: 0,
+  infotreeContextNodes: 0,
+  infotreeHoles: 0,
+  infotreeInfoItemsTotal: 0,
+  infotreeTacticStateItems: 0,
+  infotreeTermInfoItems: 0,
+  infotreeDiagnosticItems: 0,
+  infotreeWidgetItems: 0,
+  infotreeCommandsCount: 0,
+  infotreeTacticSteps: 0,
 }
 let totalFiles = 0
 const sampleFiles = []
 const portingNoteRegex = /porting note/gi
 const adaptationNoteRegex = /#adaptation_note\b/gi
 
-const addFile = (relativePath, size, loc, commentLines, codeLines, portingNotes, adaptationNotes) => {
+const infotreeKeys = [
+  'infotreeNodesTotal',
+  'infotreeContextNodes',
+  'infotreeHoles',
+  'infotreeInfoItemsTotal',
+  'infotreeTacticStateItems',
+  'infotreeTermInfoItems',
+  'infotreeDiagnosticItems',
+  'infotreeWidgetItems',
+  'infotreeCommandsCount',
+  'infotreeTacticSteps',
+]
+
+const infotreeKeyAliases = {
+  infotreeNodesTotal: 'infotree_nodes_total',
+  infotreeContextNodes: 'infotree_context_nodes',
+  infotreeHoles: 'infotree_holes',
+  infotreeInfoItemsTotal: 'infotree_info_items_total',
+  infotreeTacticStateItems: 'infotree_tactic_state_items',
+  infotreeTermInfoItems: 'infotree_term_info_items',
+  infotreeDiagnosticItems: 'infotree_diagnostic_items',
+  infotreeWidgetItems: 'infotree_widget_items',
+  infotreeCommandsCount: 'infotree_commands_count',
+  infotreeTacticSteps: 'infotree_tactic_steps',
+}
+
+const emptyInfotreeCounts = () => (
+  Object.fromEntries(infotreeKeys.map((key) => [key, 0]))
+)
+
+const readInfotreeCounts = (relativePath) => {
+  if (!infotreeRoot) {
+    return emptyInfotreeCounts()
+  }
+  const infotreePath = path.join(
+    infotreeRoot,
+    relativePath.replace(/\.lean$/, infotreeExt),
+  )
+  if (!fs.existsSync(infotreePath)) {
+    return emptyInfotreeCounts()
+  }
+  try {
+    const raw = JSON.parse(fs.readFileSync(infotreePath, 'utf8'))
+    const metrics = raw.metrics ?? raw
+    const counts = emptyInfotreeCounts()
+    infotreeKeys.forEach((key) => {
+      const value = metrics?.[key] ?? metrics?.[infotreeKeyAliases[key]]
+      counts[key] = Number.isFinite(value) ? Number(value) : 0
+    })
+    return counts
+  } catch (error) {
+    console.warn(`Failed to parse infotree metrics at ${infotreePath}:`, error)
+    return emptyInfotreeCounts()
+  }
+}
+
+const addFile = (
+  relativePath,
+  size,
+  loc,
+  commentLines,
+  codeLines,
+  portingNotes,
+  adaptationNotes,
+  infotreeCounts,
+) => {
   const parts = relativePath.split(path.sep).filter(Boolean)
   if (parts[0] === 'Mathlib') {
     parts.shift()
@@ -59,6 +136,9 @@ const addFile = (relativePath, size, loc, commentLines, codeLines, portingNotes,
   node.portingNotes += portingNotes
   node.adaptationNotes += adaptationNotes
   node.noteTotal += portingNotes + adaptationNotes
+  infotreeKeys.forEach((key) => {
+    node[key] += infotreeCounts[key] ?? 0
+  })
   totalFiles += 1
   if (sampleFiles.length < 5) {
     sampleFiles.push(relativePath)
@@ -79,6 +159,16 @@ const addFile = (relativePath, size, loc, commentLines, codeLines, portingNotes,
         portingNotes: 0,
         adaptationNotes: 0,
         noteTotal: 0,
+        infotreeNodesTotal: 0,
+        infotreeContextNodes: 0,
+        infotreeHoles: 0,
+        infotreeInfoItemsTotal: 0,
+        infotreeTacticStateItems: 0,
+        infotreeTermInfoItems: 0,
+        infotreeDiagnosticItems: 0,
+        infotreeWidgetItems: 0,
+        infotreeCommandsCount: 0,
+        infotreeTacticSteps: 0,
       }
       node.children.set(name, child)
     }
@@ -90,6 +180,9 @@ const addFile = (relativePath, size, loc, commentLines, codeLines, portingNotes,
     child.portingNotes += portingNotes
     child.adaptationNotes += adaptationNotes
     child.noteTotal += portingNotes + adaptationNotes
+    infotreeKeys.forEach((key) => {
+      child[key] += infotreeCounts[key] ?? 0
+    })
     node = child
   }
 }
@@ -131,7 +224,17 @@ const walk = (dir, baseDir) => {
       }
       const codeLines = Math.max(0, loc - commentLines)
       const relativePath = path.relative(baseDir, fullPath)
-      addFile(relativePath, stats.size, loc, commentLines, codeLines, portingNotes, adaptationNotes)
+      const infotreeCounts = readInfotreeCounts(relativePath.replace(/\\/g, '/'))
+      addFile(
+        relativePath,
+        stats.size,
+        loc,
+        commentLines,
+        codeLines,
+        portingNotes,
+        adaptationNotes,
+        infotreeCounts,
+      )
     }
   }
 }
@@ -206,6 +309,18 @@ const toJson = (node, currentPath) => {
     ? Array.from(node.children.values()).map((child) => toJson(child, nodePath))
     : []
   const commentRatio = node.codeLines > 0 ? node.commentLines / node.codeLines : 0
+  const infotreeSeries = {
+    infotree_nodes_total: node.infotreeNodesTotal,
+    infotree_context_nodes: node.infotreeContextNodes,
+    infotree_holes: node.infotreeHoles,
+    infotree_info_items_total: node.infotreeInfoItemsTotal,
+    infotree_tactic_state_items: node.infotreeTacticStateItems,
+    infotree_term_info_items: node.infotreeTermInfoItems,
+    infotree_diagnostic_items: node.infotreeDiagnosticItems,
+    infotree_widget_items: node.infotreeWidgetItems,
+    infotree_commands_count: node.infotreeCommandsCount,
+    infotree_tactic_steps: node.infotreeTacticSteps,
+  }
   if (children.length === 0) {
     return {
       name: node.name,
@@ -220,6 +335,7 @@ const toJson = (node, currentPath) => {
         porting_notes: node.portingNotes,
         adaptation_notes: node.adaptationNotes,
         notes_total: node.noteTotal,
+        ...infotreeSeries,
       },
     }
   }
@@ -238,6 +354,7 @@ const toJson = (node, currentPath) => {
       porting_notes: node.portingNotes,
       adaptation_notes: node.adaptationNotes,
       notes_total: node.noteTotal,
+      ...infotreeSeries,
     },
   }
 }

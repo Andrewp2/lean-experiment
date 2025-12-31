@@ -13,6 +13,7 @@ vscode-extension/media
 .env
 dist-ssr
 *.local
+scripts/infotree_exporter/.lake
 
 # Editor directories and files
 .vscode/*

@@ -878,8 +878,33 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
 
   useEffect(() => {
     if (seriesKeys.length > 0) {
-      setSizeSeries((current) => (seriesKeys.includes(current) ? current : (seriesKeys.includes('loc') ? 'loc' : seriesKeys[0])))
-      setColorSeries((current) => (seriesKeys.includes(current) ? current : (seriesKeys.includes('porting_notes') ? 'porting_notes' : seriesKeys[0])))
+      setSizeSeries((current) => {
+        if (seriesKeys.includes(current)) {
+          return current
+        }
+        if (seriesKeys.includes('infotree_nodes_total')) {
+          return 'infotree_nodes_total'
+        }
+        if (seriesKeys.includes('loc')) {
+          return 'loc'
+        }
+        return seriesKeys[0]
+      })
+      setColorSeries((current) => {
+        if (seriesKeys.includes(current)) {
+          return current
+        }
+        if (seriesKeys.includes('infotree_tactic_state_items')) {
+          return 'infotree_tactic_state_items'
+        }
+        if (seriesKeys.includes('infotree_diagnostic_items')) {
+          return 'infotree_diagnostic_items'
+        }
+        if (seriesKeys.includes('porting_notes')) {
+          return 'porting_notes'
+        }
+        return seriesKeys[0]
+      })
     }
   }, [seriesKeys])
 
@@ -1128,8 +1153,16 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   const handleReset = () => {
     setData(defaultData)
     setSeriesKeys(defaultSeriesKeys)
-    setSizeSeries(defaultSeriesKeys.includes('loc') ? 'loc' : (defaultSeriesKeys[0] ?? 'loc'))
-    setColorSeries(defaultSeriesKeys.includes('porting_notes') ? 'porting_notes' : (defaultSeriesKeys[0] ?? 'porting_notes'))
+    setSizeSeries(defaultSeriesKeys.includes('infotree_nodes_total')
+      ? 'infotree_nodes_total'
+      : (defaultSeriesKeys.includes('loc') ? 'loc' : (defaultSeriesKeys[0] ?? 'loc')))
+    setColorSeries(defaultSeriesKeys.includes('infotree_tactic_state_items')
+      ? 'infotree_tactic_state_items'
+      : (defaultSeriesKeys.includes('infotree_diagnostic_items')
+        ? 'infotree_diagnostic_items'
+        : (defaultSeriesKeys.includes('porting_notes')
+          ? 'porting_notes'
+          : (defaultSeriesKeys[0] ?? 'porting_notes'))))
     setColorMode('global')
     setZoomPath([])
   }
