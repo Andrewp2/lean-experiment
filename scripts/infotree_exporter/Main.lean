@@ -180,8 +180,6 @@ structure Config where
   errorLimit : Nat := 3
   maxSeconds : Option Nat := none
   singleFile : Option System.FilePath := none
-  shardIndex : Option Nat := none
-  shardCount : Option Nat := none
   deriving Inhabited
 
 def parseArgs (args : List String) : IO Config := do
@@ -212,18 +210,6 @@ def parseArgs (args : List String) : IO Config := do
         | none => throw <| IO.userError s!"Invalid --max-seconds value: {value}"
     | "--single" :: value :: rest =>
         go { cfg with singleFile := some value } rest
-    | "--shard" :: value :: rest =>
-        match value.toNat? with
-        | some count => go { cfg with shardCount := some count } rest
-        | none => throw <| IO.userError s!"Invalid --shard value: {value} (expected N)"
-    | "--shard-index" :: value :: rest =>
-        match value.toNat? with
-        | some idx => go { cfg with shardIndex := some idx } rest
-        | none => throw <| IO.userError s!"Invalid --shard-index value: {value}"
-    | "--shard-count" :: value :: rest =>
-        match value.toNat? with
-        | some count => go { cfg with shardCount := some count } rest
-        | none => throw <| IO.userError s!"Invalid --shard-count value: {value}"
     | flag :: _ =>
         throw <| IO.userError s!"Unknown argument: {flag}"
   go {} args
@@ -332,8 +318,8 @@ unsafe def getSetupCache (doc : Lean.Server.DocumentMeta) (stx : Elab.HeaderSynt
   setupCacheRef.set (some cache)
   return cache
 
-unsafe def runFrontendForTrees (doc : Lean.Server.DocumentMeta) (verbose : Bool) :
-    IO (Array InfoTree × Array Message) := do
+unsafe def runFrontendForTrees (doc : Lean.Server.DocumentMeta) (verbose : Bool) (errorLimit : Nat) :
+    IO (InfoTreeCounts × Nat × Array Message) := do
   let inputCtx := doc.mkInputContext
   let cmdlineOpts := Lean.internal.cmdlineSnapshots.setIfNotSet {} true
   let ctx : ProcessingContext := { inputCtx with }
@@ -359,15 +345,20 @@ unsafe def runFrontendForTrees (doc : Lean.Server.DocumentMeta) (verbose : Bool)
   let _ ← snaps.runAndReport cmdlineOpts false {}
   let waitTask ← snaps.waitAll
   let _ := waitTask.get
-  let mut messages : Array Message := #[]
+  let mut counts : InfoTreeCounts := {}
+  let mut errorCount : Nat := 0
+  let mut errorMessages : Array Message := #[]
   for snapshot in snaps.getAll do
-    messages := messages ++ snapshot.diagnostics.msgLog.toArray
-  let trees := snaps.getAll.foldl (init := #[]) fun acc snapshot =>
+    for msg in snapshot.diagnostics.msgLog.toArray do
+      if msg.severity == MessageSeverity.error then
+        errorCount := errorCount + 1
+        if errorMessages.size < errorLimit then
+          errorMessages := errorMessages.push msg
     match snapshot.infoTree? with
-    | some tree => acc.push tree
-    | none => acc
+    | some tree => counts := countTree tree counts
+    | none => pure ()
   Runtime.forget snaps
-  return (trees, messages)
+  return (counts, errorCount, errorMessages)
 
 unsafe def exportFile (cfg : Config) (file : System.FilePath) (index : Nat) (total : Nat) : IO Unit := do
   let relativePath ← relativeToRoot cfg.rootDir file
@@ -380,17 +371,14 @@ unsafe def exportFile (cfg : Config) (file : System.FilePath) (index : Nat) (tot
     mod := moduleName
     version := 0
     text := input.toFileMap
-    dependencyBuildMode := .always
+    dependencyBuildMode := .never
   }
-  let (trees, messages) ← runFrontendForTrees doc cfg.verbose
-  let errors := messages.filter (·.severity == MessageSeverity.error)
-  if !errors.isEmpty then
+  let (counts, errorCount, errors) ← runFrontendForTrees doc cfg.verbose cfg.errorLimit
+  if errorCount > 0 then
     IO.eprintln s!"[infotree_export] errors while processing {relativePath}"
-    let limit := min cfg.errorLimit errors.size
-    for i in [0:limit] do
-      let msg ← errors[i]!.toString
+    for msg in errors do
+      let msg ← msg.toString
       IO.eprintln msg
-  let counts := countTrees trees
   let outputPath := cfg.outDir / relativePath |>.withExtension "json"
   let outputDir := outputPath.parent.getD cfg.outDir
   IO.FS.createDirAll outputDir
@@ -441,50 +429,7 @@ unsafe def main (args : List String) : IO Unit := do
     Lean.withImporting do
       exportFile cfg file 0 1
     return ()
-  if cfg.shardIndex.isNone then
-    if let some shardCount := cfg.shardCount then
-      if shardCount <= 1 then
-        throw <| IO.userError "--shard must be > 1"
-      let exeDir ← IO.appDir
-      let exePath := exeDir / "infotree_export"
-      let rec stripShard (rest : List String) : List String :=
-        match rest with
-        | "--shard" :: _ :: tail => stripShard tail
-        | "--shard-index" :: _ :: tail => stripShard tail
-        | "--shard-count" :: _ :: tail => stripShard tail
-        | head :: tail => head :: stripShard tail
-        | [] => []
-      let baseArgs := stripShard args
-      let mut children : Array (IO.Process.Child _) := #[]
-      for i in [0:shardCount] do
-        let childArgs :=
-          baseArgs ++ ["--shard-index", toString i, "--shard-count", toString shardCount]
-        let child ← IO.Process.spawn {
-          cmd := exePath.toString
-          args := childArgs.toArray
-          cwd := some cfg.rootDir
-          stdout := .inherit
-          stderr := .inherit
-        }
-        children := children.push child
-      for child in children do
-        let _ ← child.wait
-      return ()
   let files ← getLeanFiles cfg.rootDir
-  let files ←
-    match cfg.shardIndex, cfg.shardCount with
-    | some shard, some shards =>
-        if shards == 0 then
-          throw <| IO.userError "--shard-count must be > 0"
-        if shard >= shards then
-          throw <| IO.userError "--shard-index must be < --shard-count"
-        let mut selected : Array System.FilePath := #[]
-        for h : i in [0:files.size] do
-          if i % shards == shard then
-            selected := selected.push files[i]
-        pure selected
-    | none, none => pure files
-    | _, _ => throw <| IO.userError "Use --shard N or internal --shard-index/--shard-count"
   if cfg.start >= files.size then
     throw <| IO.userError s!"Start index {cfg.start} is out of range for {files.size} files"
   let endIdx :=
