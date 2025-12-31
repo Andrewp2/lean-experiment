@@ -128,7 +128,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         'pages/tactics': resolve(__dirname, 'pages/tactics.html'),
         'pages/visualizer': resolve(__dirname, 'pages/visualizer.html'),
-        'pages/mathlib': resolve(__dirname, 'pages/mathlib.html'),
+        mathlib: resolve(__dirname, 'pages/mathlib.html'),
         'pages/mathlib-vscode': resolve(__dirname, 'pages/mathlib-vscode.html'),
       },
     },
