@@ -53,6 +53,14 @@ def main():
     parser.add_argument("--systemd-system", action="store_true")
     args = parser.parse_args()
 
+    def log(message, *, stderr=False):
+        stream = sys.stderr if stderr else sys.stdout
+        stream.write(f"{message}\n")
+        stream.flush()
+        if args.log_file:
+            with open(args.log_file, "a", encoding="utf-8") as handle:
+                handle.write(f"{message}\n")
+
     if args.batch_size <= 0:
         raise SystemExit("--batch-size must be > 0")
 
@@ -105,7 +113,7 @@ def main():
                         all_done = False
                         break
                 if all_done:
-                    print(f"[infotree_export] continue skip batch {batch_start}..{batch_end}")
+                    log(f"[infotree_export] continue skip batch {batch_start}..{batch_end}")
                     continue
         if args.no_systemd:
             cmd = [
@@ -159,9 +167,11 @@ def main():
             cmd.append("--gzip")
         if args.skip_on_error:
             cmd.append("--skip-on-error")
+        log(f"[infotree_export] batch start {batch_start}..{batch_start + limit}")
+        log(f"[infotree_export] batch cmd: {' '.join(cmd)}")
         exit_code = run_and_tee(cmd, script_dir, args.log_file)
         if exit_code != 0:
-            print(f"[infotree_export] batch failed with exit code {exit_code}", file=sys.stderr)
+            log(f"[infotree_export] batch failed with exit code {exit_code}", stderr=True)
             return exit_code
     return 0
 

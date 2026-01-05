@@ -612,7 +612,7 @@
 .treemap-readout-path {
   font-size: 1rem;
   letter-spacing: 0.05em;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .treemap-readout-metrics {
