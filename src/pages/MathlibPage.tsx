@@ -39,9 +39,7 @@ type LayoutNode = {
   parentName?: string
 }
 type LayoutPayload = {
-  parentNodes: LayoutNode[]
-  childNodes: LayoutNode[]
-  labelSuffix: string
+  leafNodes: LayoutNode[]
 }
 
 type MathlibPageProps = {
@@ -71,7 +69,6 @@ type BuildNode = {
 }
 
 const MAX_DEPTH = 5
-const MIN_PERCENT = 0.01
 const GROUP_BY = 'loc'
 const portingNoteRegex = /porting[\s_-]*note/gi
 const adaptationNoteRegex = /#adaptation_note\b/gi
@@ -234,42 +231,7 @@ const normalizeNode = (node: TreemapNode): TreemapNode => {
     return node
   }
   const normalizedChildren = node.children.map(normalizeNode)
-  const key = node.series?.[GROUP_BY] !== undefined ? GROUP_BY : 'bytes'
-  const total = normalizedChildren.reduce((sum, child) => sum + sumSeriesValue(child, key), 0)
-  if (total === 0) {
-    return { ...node, children: normalizedChildren }
-  }
-  const keep: TreemapNode[] = []
-  const otherChildren: TreemapNode[] = []
-  for (const child of normalizedChildren) {
-    const childValue = sumSeriesValue(child, key)
-    if (childValue / total < MIN_PERCENT) {
-      otherChildren.push(child)
-    } else {
-      keep.push(child)
-    }
-  }
-  if (otherChildren.length === 0 || keep.length === 0) {
-    return { ...node, children: normalizedChildren }
-  }
-  const seriesKeys = new Set<string>()
-  for (const child of otherChildren) {
-    Object.keys(child.series ?? {}).forEach((seriesKey) => seriesKeys.add(seriesKey))
-  }
-  const otherSeries: Record<string, number> = {}
-  for (const seriesKey of seriesKeys) {
-    otherSeries[seriesKey] = otherChildren.reduce(
-      (sum, child) => sum + sumSeriesValue(child, seriesKey),
-      0,
-    )
-  }
-  const otherNode: TreemapNode = normalizeNode({
-    name: 'Miscellaneous',
-    path: node.path ? `${node.path}/Miscellaneous` : 'Miscellaneous',
-    children: otherChildren,
-    series: otherSeries,
-  })
-  return { ...node, children: [...keep, otherNode] }
+  return { ...node, children: normalizedChildren }
 }
 
 const buildTreemapFromFiles = async (files: FileList, regexPatterns: string[]) => {
@@ -330,17 +292,14 @@ const useTreemap = (
   colorSeries: string,
   colorMode: ColorMode,
   theme: 'highk' | 'reticle',
-  zoomPath: string[],
-  setZoomPath: (path: string[]) => void,
   colors: string[],
-  hoveredGroup: string | null,
-  tooltipRef: React.RefObject<HTMLDivElement>,
   colorScale: ColorScale,
   mathlibPath: string,
   openFileTarget: (fullPath: string, link: string) => void,
   warnMissingMathlibPath: () => void,
   isTauri: boolean,
   vscodePath: string,
+  onHoverLeaf: (node: LayoutNode | null) => void,
 ) => {
   const workerRef = useRef<Worker | null>(null)
   const requestIdRef = useRef(0)
@@ -397,9 +356,8 @@ const useTreemap = (
         colorSeries,
         colorMode,
         theme,
-        zoomPath,
         width,
-        height: 840,
+        height: 600,
         colors,
         colorScale,
       },
@@ -411,7 +369,6 @@ const useTreemap = (
     colorSeries,
     colorMode,
     theme,
-    zoomPath,
     colors,
     colorScale,
   ])
@@ -423,7 +380,7 @@ const useTreemap = (
     }
 
     const width = container.clientWidth
-    const height = 840
+    const height = 600
 
     container.innerHTML = ''
     const svg = d3
@@ -433,35 +390,21 @@ const useTreemap = (
       .attr('width', width)
       .attr('height', height)
 
-    const tooltip = tooltipRef.current
-    const formatter = new Intl.NumberFormat('en-US')
+    const g = svg.append('g').attr('class', 'treemap-zoom')
+    const zoomBehavior = d3
+      .zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.6, 10])
+      .on('zoom', (event) => {
+        g.attr('transform', event.transform.toString())
+      })
+    svg.call(
+      zoomBehavior as unknown as (
+        selection: d3.Selection<SVGSVGElement, unknown, null, undefined>,
+      ) => void,
+    )
+    svg.on('dblclick.zoom', null)
 
-    const setTooltip = (
-      event: MouseEvent,
-      labelParts: string[],
-      value: number,
-      suffix: string,
-    ) => {
-      if (!tooltip) {
-        return
-      }
-      const bounds = container.getBoundingClientRect()
-      tooltip.textContent = `${labelParts.join(' / ')} · ${formatter.format(value)} ${suffix}`
-      tooltip.style.left = `${event.clientX - bounds.left + 12}px`
-      tooltip.style.top = `${event.clientY - bounds.top + 12}px`
-      tooltip.classList.add('is-visible')
-    }
-
-    const hideTooltip = () => {
-      if (!tooltip) {
-        return
-      }
-      tooltip.classList.remove('is-visible')
-    }
-
-    const labelSuffix = layout.labelSuffix
-    const parentNodes = layout.parentNodes
-    const childNodes = layout.childNodes
+    const leafNodes = layout.leafNodes
     const basePath = isTauri ? mathlibPath : vscodePath
     const normalizedBasePath = basePath.trim().replace(/\/+$/, '')
     const buildFileTarget = (node: LayoutNode) => {
@@ -476,135 +419,34 @@ const useTreemap = (
       return { fullPath, link: `vscode://file/${encodeURI(fullPath)}` }
     }
 
-    const parents = svg.selectAll('g.parent').data(parentNodes).enter().append('g').attr('class', 'parent')
-    parents
-      .append('rect')
-      .attr('x', (d) => d.x0)
-      .attr('y', (d) => d.y0)
-      .attr('width', (d) => d.x1 - d.x0)
-      .attr('height', (d) => d.y1 - d.y0)
-      .attr('class', 'treemap-rect treemap-parent')
-      .classed('is-leaf', (d) => !!d.isLeaf)
-      .classed('is-folder', (d) => !d.isLeaf)
-      .attr('fill', (d) => d.fill)
-
-      .attr('data-group', (d) => d.name)
-      .on('click', (_, d) => {
-        if (d.isLeaf) {
-          const target = buildFileTarget(d)
-          if (target) {
-            void openFileTarget(target.fullPath, target.link)
-          } else {
-            void warnMissingMathlibPath()
-          }
-          return
-        }
-        setZoomPath([...zoomPath, d.name])
-      })
-      .on('mouseover', function () {
-        d3.select(this).classed('is-hovered', true)
-      })
-      .on('mousemove', (event, d) => {
-        const label = [...zoomPath, d.name].filter(Boolean)
-        const sizeValue = d.series?.[sizeSeries] ?? 0
-        const colorValue = d.series?.[colorSeries] ?? 0
-        setTooltip(event, label, sizeValue, labelSuffix)
-        if (tooltip) {
-          tooltip.textContent = `${label.join(' / ')} · ${formatter.format(sizeValue)} ${labelSuffix} · ${formatter.format(colorValue)} ${colorSeries.replace(/_/g, ' ')}`
-        }
-      })
-      .on('mouseout', function () {
-        d3.select(this).classed('is-hovered', false)
-        hideTooltip()
-      })
-
-    parents
-      .append('text')
-      .attr('x', (d) => d.x0 + 6)
-      .attr('y', (d) => d.y0 + 14)
-      .attr('class', 'treemap-parent-label')
-      .text((d) => d.name)
-
-    const nodes = svg.selectAll('g.child').data(childNodes).enter().append('g').attr('class', 'child')
-
-    const clipId = (_: LayoutNode, i: number) => (
-      `treemap-clip-${sizeSeries}-${i}`
-    )
-    const defs = svg.append('defs')
-    defs
-      .selectAll('clipPath')
-      .data(childNodes)
+    g
+      .selectAll('rect')
+      .data(leafNodes)
       .enter()
-      .append('clipPath')
-      .attr('id', clipId)
-      .attr('clipPathUnits', 'userSpaceOnUse')
-      .append('rect')
-      .attr('x', (d) => d.x0 + 2)
-      .attr('y', (d) => d.y0 + 2)
-      .attr('width', (d) => Math.max(0, d.x1 - d.x0 - 4))
-      .attr('height', (d) => Math.max(0, d.y1 - d.y0 - 4))
-    nodes
       .append('rect')
       .attr('x', (d) => d.x0)
       .attr('y', (d) => d.y0)
       .attr('width', (d) => d.x1 - d.x0)
       .attr('height', (d) => d.y1 - d.y0)
       .attr('class', 'treemap-rect treemap-child')
-      .classed('is-leaf', (d) => !!d.isLeaf)
-      .classed('is-folder', (d) => !d.isLeaf)
       .attr('fill', (d) => d.fill)
-      .attr('data-group', (d) => d.parentName ?? '')
+      .style('stroke-width', (d) => {
+        return 0
+      })
       .on('click', (_, d) => {
-        if (d.isLeaf) {
-          const target = buildFileTarget(d)
-          if (target) {
-            void openFileTarget(target.fullPath, target.link)
-          } else {
-            void warnMissingMathlibPath()
-          }
-          return
-        }
-        const parent = d.parentName
-        if (parent) {
-          setZoomPath([...zoomPath, parent, d.name])
+        const target = buildFileTarget(d)
+        if (target) {
+          void openFileTarget(target.fullPath, target.link)
+        } else {
+          void warnMissingMathlibPath()
         }
       })
-      .on('mousemove', (event, d) => {
-        const parent = d.parentName ?? ''
-        const label = [...zoomPath, parent, d.name].filter(Boolean)
-        const sizeValue = d.series?.[sizeSeries] ?? 0
-        const colorValue = d.series?.[colorSeries] ?? 0
-        setTooltip(event, label, sizeValue, labelSuffix)
-        if (tooltip) {
-          tooltip.textContent = `${label.join(' / ')} · ${formatter.format(sizeValue)} ${labelSuffix} · ${formatter.format(colorValue)} ${colorSeries.replace(/_/g, ' ')}`
-        }
+      .on('mousemove', (_, d) => {
+        onHoverLeaf(d)
       })
-      .on('mouseover', function () {
-        d3.select(this).classed('is-hovered', true)
+      .on('mouseout', () => {
+        onHoverLeaf(null)
       })
-      .on('mouseout', function () {
-        d3.select(this).classed('is-hovered', false)
-        hideTooltip()
-      })
-
-    nodes
-      .append('text')
-      .attr('x', (d) => d.x0 + 6)
-      .attr('y', (d) => d.y0 + 6)
-      .attr('class', 'treemap-label')
-      .attr('dominant-baseline', 'hanging')
-      .attr('clip-path', (d, i) => `url(#${clipId(d, i)})`)
-      .text((d) => d.name)
-      .style('display', (d) => (
-        (d.x1 - d.x0 < 28 || d.y1 - d.y0 < 14) ? 'none' : 'block'
-      ))
-
-    if (hoveredGroup) {
-      svg
-        .selectAll<SVGRectElement, LayoutNode>('.treemap-child')
-        .classed('is-dim', (d) => (d.parentName ?? '') !== hoveredGroup)
-        .classed('is-group-hovered', (d) => (d.parentName ?? '') === hoveredGroup)
-    }
 
     return () => {
       container.innerHTML = ''
@@ -616,17 +458,14 @@ const useTreemap = (
     colorSeries,
     colorMode,
     theme,
-    zoomPath,
-    setZoomPath,
     colors,
-    hoveredGroup,
-    tooltipRef,
     colorScale,
     mathlibPath,
     openFileTarget,
     warnMissingMathlibPath,
     isTauri,
     vscodePath,
+    onHoverLeaf,
     layout,
   ])
 }
@@ -634,7 +473,6 @@ const useTreemap = (
 export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   const { mode, setMode, theme } = useThemeMode()
   const treemapRef = useRef<HTMLDivElement>(null)
-  const tooltipRef = useRef<HTMLDivElement>(null)
   const rawData = treemapData as unknown as TreemapData
   const defaultData = useMemo<TreemapNode>(() => (
     rawData.root ?? (treemapData as unknown as TreemapNode)
@@ -647,8 +485,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   const [sizeSeries, setSizeSeries] = useState<string>('loc')
   const [colorSeries, setColorSeries] = useState<string>('porting_notes')
   const [colorMode, setColorMode] = useState<ColorMode>('global')
-  const [zoomPath, setZoomPath] = useState<string[]>([])
-  const [hoveredGroup, setHoveredGroup] = useState<string | null>(null)
+  const [hoveredLeaf, setHoveredLeaf] = useState<LayoutNode | null>(null)
   const [regexInput, setRegexInput] = useState<string>('')
   const [regexError, setRegexError] = useState<string>('')
   const [regexPatterns, setRegexPatterns] = useState<string[]>([])
@@ -666,6 +503,8 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     !!(window as { __TAURI__?: unknown }).__TAURI__ ||
     !!(window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
   )
+  const showPrimaryControls = !embedded || !isTauri
+  const showHeader = !embedded || (!isTauri && !isVscode)
   const pastel = useMemo(() => ([
     '#ffd8be',
     '#cde7f0',
@@ -703,7 +542,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
       : { low: '#2d72c4', high: '#e38c4a' }
   ), [theme])
 
-  const warnMissingMathlibPath = async () => {
+  const warnMissingMathlibPath = useCallback(async () => {
     const message = 'Set a Mathlib path to open files directly in VS Code.'
     if (isVscode) {
       vscodeApi?.postMessage({ type: 'showWarning', text: message })
@@ -719,17 +558,9 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
       }
     }
     window.alert(message)
-  }
+  }, [isTauri, isVscode, vscodeApi])
 
-  const openFileTarget = (fullPath: string, link: string) => {
-    if (isVscode) {
-      vscodeApi?.postMessage({ type: 'openFile', path: fullPath })
-      return
-    }
-    void openVscodeLink(link)
-  }
-
-  const openVscodeLink = async (link: string) => {
+  const openVscodeLink = useCallback(async (link: string) => {
     if (isTauri) {
       try {
         const core = await import(/* @vite-ignore */ '@tauri-apps/api/core')
@@ -740,7 +571,15 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
       return
     }
     window.location.href = link
-  }
+  }, [isTauri])
+
+  const openFileTarget = useCallback((fullPath: string, link: string) => {
+    if (isVscode) {
+      vscodeApi?.postMessage({ type: 'openFile', path: fullPath })
+      return
+    }
+    void openVscodeLink(link)
+  }, [isVscode, openVscodeLink, vscodeApi])
 
   const beginRebuild = useCallback((label: string) => {
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
@@ -859,22 +698,15 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     colorSeries,
     colorMode,
     theme,
-    zoomPath,
-    setZoomPath,
     palette,
-    hoveredGroup,
-    tooltipRef,
     colorScale,
     mathlibPath,
     openFileTarget,
     warnMissingMathlibPath,
     isTauri,
     vscodePath,
+    setHoveredLeaf,
   )
-
-  useEffect(() => {
-    setHoveredGroup(null)
-  }, [zoomPath])
 
   useEffect(() => {
     if (seriesKeys.length > 0) {
@@ -1006,9 +838,9 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
           directory: true,
           multiple: false,
         })
-          if (typeof selected === 'string') {
-            setMathlibPath(selected)
-          }
+        if (typeof selected === 'string') {
+          setMathlibPath(selected)
+        }
         return
       }
       mathlibFolderRef.current?.click()
@@ -1021,7 +853,6 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     setMathlibPath('')
     setData(defaultData)
     setSeriesKeys(defaultSeriesKeys)
-    setZoomPath([])
     if (isTauri) {
       void (async () => {
         try {
@@ -1068,14 +899,12 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   const applyUploadedData = useCallback((parsed: UploadedData) => {
     if (parsed.root) {
       setData(parsed.root)
-      setZoomPath([])
       setSeriesKeys(parsed.seriesKeys ?? Object.keys(parsed.root.series ?? {}))
       return
     }
     if (parsed.entries) {
       const built = buildTreeFromEntries(parsed.entries)
       setData(built)
-      setZoomPath([])
       const keys = new Set<string>()
       parsed.entries.forEach((entry) => {
         Object.keys(entry.series ?? {}).forEach((key) => keys.add(key))
@@ -1164,12 +993,36 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
           ? 'porting_notes'
           : (defaultSeriesKeys[0] ?? 'porting_notes'))))
     setColorMode('global')
-    setZoomPath([])
+  }
+
+  const formatMetricValue = (key: string, value: number | undefined) => {
+    if (value === undefined) {
+      return '0'
+    }
+    if (key === 'comment_ratio') {
+      return value.toFixed(6)
+    }
+    return value
+  }
+
+  const metricValueWidth = (key: string) => {
+    switch (key) {
+      case 'comment_ratio':
+        return '10ch'
+      case 'code_lines':
+        return '6ch'
+      case 'loc':
+        return '7ch'
+      case 'bytes':
+        return '7ch'
+      default:
+        return '4ch'
+    }
   }
 
   return (
     <div className={`page theme-${theme}`}>
-      {embedded ? null : <SiteHeader mode={mode} onModeChange={setMode} />}
+      {showHeader ? <SiteHeader mode={mode} onModeChange={setMode} /> : null}
 
       {embedded ? null : (
         <section className="intro">
@@ -1196,7 +1049,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
           </>
         )}
         <div className="treemap-menu">
-          {embedded ? null : (
+          {showPrimaryControls ? (
             <>
               <label className="treemap-select">
                 <span>DATA</span>
@@ -1250,77 +1103,108 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
                 RESET DEFAULT
               </button>
             </>
-          )}
+          ) : null}
+          {embedded && isTauri ? (
+            <div className="treemap-select">
+              <span>MATHLIB PATH (mathlib)</span>
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={handlePickMathlibFolder}
+              >
+                Choose Folder
+              </button>
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={handleResetMathlibPath}
+              >
+                Reset
+              </button>
+              <input
+                ref={mathlibFolderRef}
+                className="treemap-hidden-input"
+                type="file"
+                onChange={handleMathlibFolderSelect}
+                aria-label="Select mathlib folder"
+              />
+              <span className="treemap-path-preview">
+                {mathlibPath || 'Choose a mathlib folder'}
+              </span>
+            </div>
+          ) : null}
           {isVscode || isTauri ? (
             <button className="ghost-button" type="button" onClick={handleRebuild}>
               REBUILD
             </button>
           ) : null}
-          <label className="treemap-select">
-            <span>SIZE</span>
-            <select
-              value={sizeSeries}
-              onChange={(event) => setSizeSeries(event.target.value)}
-            >
-              {seriesKeys.map((key) => (
-                <option key={key} value={key}>
-                  {key.replace(/_/g, ' ')}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="treemap-select">
-            <span>COLOR</span>
-            <select
-              value={colorSeries}
-              onChange={(event) => setColorSeries(event.target.value)}
-            >
-              {seriesKeys.map((key) => (
-                <option key={key} value={key}>
-                  {key.replace(/_/g, ' ')}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="treemap-select">
-            <span>MODE</span>
-            <select
-              value={colorMode}
-              onChange={(event) => setColorMode(event.target.value as ColorMode)}
-            >
-              <option value="global">global</option>
-              <option value="per_parent">per parent</option>
-            </select>
-          </label>
-          {isVscode || isTauri ? (
-            <>
-              <label className="treemap-select treemap-regex-input">
-                <span>REGEX</span>
-                <input
-                  type="text"
-                  value={regexInput}
-                  onChange={(event) => {
-                    setRegexInput(event.target.value)
-                    if (regexError) {
-                      setRegexError('')
-                    }
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault()
-                      addRegexPattern()
-                    }
-                  }}
-                  placeholder={String.raw`e.g. \bTODO\b`}
-                />
-              </label>
-              <button className="ghost-button" type="button" onClick={addRegexPattern}>
-                ADD REGEX
-              </button>
-            </>
-          ) : null}
+          <>
+            <label className="treemap-select">
+              <span>SIZE</span>
+              <select
+                value={sizeSeries}
+                onChange={(event) => setSizeSeries(event.target.value)}
+              >
+                {seriesKeys.map((key) => (
+                  <option key={key} value={key}>
+                    {key.replace(/_/g, ' ')}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="treemap-select">
+              <span>COLOR</span>
+              <select
+                value={colorSeries}
+                onChange={(event) => setColorSeries(event.target.value)}
+              >
+                {seriesKeys.map((key) => (
+                  <option key={key} value={key}>
+                    {key.replace(/_/g, ' ')}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="treemap-select">
+              <span>MODE</span>
+              <select
+                value={colorMode}
+                onChange={(event) => setColorMode(event.target.value as ColorMode)}
+              >
+                <option value="global">global</option>
+                <option value="per_parent">per parent</option>
+              </select>
+            </label>
+            {!embedded && (isVscode || isTauri) ? (
+              <>
+                <label className="treemap-select treemap-regex-input">
+                  <span>REGEX</span>
+                  <input
+                    type="text"
+                    value={regexInput}
+                    onChange={(event) => {
+                      setRegexInput(event.target.value)
+                      if (regexError) {
+                        setRegexError('')
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        addRegexPattern()
+                      }
+                    }}
+                    placeholder={String.raw`e.g. \bTODO\b`}
+                  />
+                </label>
+                <button className="ghost-button" type="button" onClick={addRegexPattern}>
+                  ADD REGEX
+                </button>
+              </>
+            ) : null}
+          </>
         </div>
-        {isVscode || isTauri ? (
+        {!embedded && (isVscode || isTauri) ? (
           <>
             {regexError ? <div className="treemap-regex-error">{regexError}</div> : null}
             {regexPatterns.length > 0 ? (
@@ -1341,23 +1225,6 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
             ) : null}
           </>
         ) : null}
-        <div className="treemap-separator" />
-        <div className="treemap-breadcrumb">
-          <button className="ghost-button" onClick={() => setZoomPath([])}>
-            {data.name?.toUpperCase?.() ?? 'ROOT'}
-          </button>
-          {zoomPath.map((segment, index) => {
-            const nextPath = zoomPath.slice(0, index + 1)
-            return (
-              <span key={`${segment}-${index}`} className="breadcrumb-item">
-                <span className="breadcrumb-sep">/</span>
-                <button className="ghost-button" onClick={() => setZoomPath(nextPath)}>
-                  {segment}
-                </button>
-              </span>
-            )
-          })}
-        </div>
         <div className="treemap-panel">
           {isRebuilding ? (
             <div className="treemap-rebuild">
@@ -1366,7 +1233,32 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
             </div>
           ) : null}
           <div className="treemap-canvas" ref={treemapRef} />
-          <div className="treemap-tooltip" ref={tooltipRef} />
+        </div>
+        <div className="treemap-readout">
+          <span className="treemap-readout-metrics">
+            {seriesKeys.map((key) => {
+              if (key === 'file_count' || key.startsWith('infotree_')) {
+                return null
+              }
+              const value = hoveredLeaf?.series?.[key]
+              const formattedValue = formatMetricValue(key, value)
+              return (
+                <span
+                  key={key}
+                  className={`treemap-readout-item${hoveredLeaf ? '' : ' treemap-readout-empty'}`}
+                >
+                  <span className="treemap-readout-key">{key.replace(/_/g, ' ')}</span>
+                  <span className="treemap-readout-sep">:</span>
+                  <span
+                    className="treemap-readout-value"
+                    style={{ minWidth: metricValueWidth(key) }}
+                  >
+                    {formattedValue}
+                  </span>
+                </span>
+              )
+            })}
+          </span>
         </div>
       </section>
 

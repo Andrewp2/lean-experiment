@@ -1,5 +1,5 @@
 import { hierarchy, treemap } from 'd3-hierarchy'
-import { scaleLinear } from 'd3-scale'
+import { interpolateHcl } from 'd3-interpolate'
 
 type TreemapNode = {
   name: string
@@ -23,9 +23,7 @@ type LayoutNode = {
 }
 
 type LayoutPayload = {
-  parentNodes: LayoutNode[]
-  childNodes: LayoutNode[]
-  labelSuffix: string
+  leafNodes: LayoutNode[]
 }
 
 type LayoutRequest = {
@@ -37,7 +35,6 @@ type LayoutRequest = {
     colorSeries: string
     colorMode: 'global' | 'per_parent'
     theme: 'highk' | 'reticle'
-    zoomPath: string[]
     width: number
     height: number
     colors: string[]
@@ -47,20 +44,22 @@ type LayoutRequest = {
 
 const valueForSeries = (node: TreemapNode, key: string) => node.series?.[key] ?? 0
 
-const findNode = (
-  node: ReturnType<typeof hierarchy<TreemapNode>>,
-  path: string[],
-) => {
-  let current = node
-  for (const segment of path) {
-    const next = current.children?.find((child) => child.data.name === segment)
-    if (!next) {
-      return current
-    }
-    current = next
+const pruneToLeaves = (node: TreemapNode): TreemapNode => {
+  if (node.isLeaf) {
+    return { ...node, children: undefined }
   }
-  return current
+  if (!node.children || node.children.length === 0) {
+    return node
+  }
+  return {
+    ...node,
+    children: node.children.map(pruneToLeaves),
+  }
 }
+
+const isLeafNode = (node: TreemapNode) => (
+  node.isLeaf === true || !node.children || node.children.length === 0
+)
 
 const buildLayout = (payload: LayoutRequest['payload']): LayoutPayload => {
   const {
@@ -68,112 +67,67 @@ const buildLayout = (payload: LayoutRequest['payload']): LayoutPayload => {
     sizeSeries,
     colorSeries,
     colorMode,
-    theme,
-    zoomPath,
     width,
     height,
     colors,
-    colorScale,
   } = payload
 
-  const root = hierarchy<TreemapNode>(data)
-    .sum((d) => valueForSeries(d, sizeSeries))
+  const prunedData = pruneToLeaves(data)
+  const root = hierarchy<TreemapNode>(prunedData)
+    .sum((d) => (isLeafNode(d) ? valueForSeries(d, sizeSeries) : 0))
     .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
-  const zoomRoot = findNode(root, zoomPath)
-  const topLevel = zoomRoot.children ?? []
-
-  const displayRoot = hierarchy({
-    name: zoomRoot.data.name,
-    path: zoomRoot.data.path,
-    children: topLevel.map((child) => {
-      const grandChildren = child.children ?? []
-      if (grandChildren.length === 0) {
-        return {
-          name: child.data.name,
-          path: child.data.path,
-          series: child.data.series ?? {},
-          isLeaf: true,
-        }
-      }
-      return {
-        name: child.data.name,
-        path: child.data.path,
-        series: child.data.series ?? {},
-        children: grandChildren.map((g) => ({
-          name: g.data.name,
-          path: g.data.path,
-          series: g.data.series ?? {},
-          isLeaf: !(g.children && g.children.length > 0),
-        })),
-        isLeaf: false,
-      }
-    }),
-  } as TreemapNode)
-
-  const sizeValueForLayout = (node: TreemapNode) => (
-    node.children && node.children.length > 0 ? 0 : valueForSeries(node, sizeSeries)
-  )
-
-  displayRoot.sum(sizeValueForLayout)
   const tiledRoot = treemap<TreemapNode>()
     .size([width, height])
-    .paddingOuter(2)
-    .paddingInner(3)
-    .paddingTop((d) => (d.depth === 1 ? 18 : 2))(displayRoot)
+    .paddingOuter(1)
+    .paddingInner(1)
+    .paddingTop(1)(root)
 
-  const parentNodes = tiledRoot.descendants().filter((d) => d.depth === 1)
-  const childNodes = tiledRoot.descendants().filter((d) => d.depth === 2)
+  const leafNodes = tiledRoot.descendants().filter((d) => !d.children || d.children.length === 0)
 
   const colorIndexByName = new Map(
-    parentNodes.map((child, index) => [child.data.name, index]),
+    leafNodes.map((child, index) => [child.data.name, index]),
   )
   const color = (name: string) => {
     const index = colorIndexByName.get(name) ?? 0
     return colors[index % colors.length]
   }
-  const displayNodes = childNodes.length > 0 ? childNodes : parentNodes
-  const absoluteValues = displayNodes.map((node) => valueForSeries(node.data, colorSeries))
+  const clamp01 = (value: number) => Math.max(0, Math.min(1, value))
+  const colorLow = '#2d72c4'
+  const colorHigh = '#e38c4a'
+  const absoluteValues = leafNodes.map((node) => valueForSeries(node.data, colorSeries))
   const maxAbsolute = Math.max(0, ...absoluteValues)
   const minAbsoluteNonZero = Math.min(
     ...absoluteValues.filter((value) => value > 0),
   )
-  const colorMax = maxAbsolute
+  const colorMax = maxAbsolute > 0 ? maxAbsolute : 1
   const colorMin = Number.isFinite(minAbsoluteNonZero) ? minAbsoluteNonZero : 0
-  const colorDomainMax = colorMax > 0 ? colorMax : 1
-  const colorDomainMin = colorMin > 0 ? colorMin : 0
-  const colorScaleFn = scaleLinear<string>()
-    .domain([
-      colorDomainMin,
-      colorDomainMax === colorDomainMin ? colorDomainMin + 1 : colorDomainMax,
-    ])
-    .range([colorScale.low, colorScale.high])
-
-  const baseZeroColor = theme === 'reticle' ? '#000000' : '#ffffff'
+  const zeroColor = '#1a0b0b'
   const relativeFill = (value: number, minNonZero: number, max: number) => {
-    if (value <= 0 || max <= 0) {
-      return baseZeroColor
+    if (!Number.isFinite(value) || value <= 0 || max <= 0) {
+      return zeroColor
     }
     if (minNonZero > 0 && max === minNonZero) {
-      return colorScale.high
+      return interpolateHcl(colorLow, colorHigh)(1)
     }
-    const scale = scaleLinear<string>()
-      .domain([minNonZero > 0 ? minNonZero : 0, max])
-      .range([colorScale.low, colorScale.high])
-    return scale(value)
+    const t = clamp01((value - Math.max(0, minNonZero)) / (max - Math.max(0, minNonZero)))
+    return interpolateHcl(colorLow, colorHigh)(t)
   }
 
   const absoluteFill = (value: number, fallbackName: string) => {
-    if (value <= 0) {
-      return baseZeroColor
+    if (!Number.isFinite(value) || value <= 0) {
+      return zeroColor
     }
-    if (!Number.isFinite(value)) {
-      return color(fallbackName)
+    if (colorMax === colorMin) {
+      return interpolateHcl(colorLow, colorHigh)(1)
     }
-    return colorScaleFn(value)
+    const t = clamp01((value - colorMin) / (colorMax - colorMin))
+    return Number.isFinite(t)
+      ? interpolateHcl(colorLow, colorHigh)(t)
+      : color(fallbackName)
   }
 
   const childGroups = new Map<string, { minNonZero: number; max: number }>()
-  childNodes.forEach((node) => {
+  leafNodes.forEach((node) => {
     const parentName = node.parent?.data.name ?? ''
     const value = valueForSeries(node.data, colorSeries)
     if (!childGroups.has(parentName)) {
@@ -185,33 +139,7 @@ const buildLayout = (payload: LayoutRequest['payload']): LayoutPayload => {
       group.max = Math.max(group.max, value)
     }
   })
-  const parentMinNonZero = Math.min(
-    ...parentNodes.map((node) => valueForSeries(node.data, colorSeries)).filter((value) => value > 0),
-  )
-  const parentMax = Math.max(
-    0,
-    ...parentNodes.map((node) => valueForSeries(node.data, colorSeries)),
-  )
-
-  const parentLayout = parentNodes.map((node) => ({
-    name: node.data.name,
-    path: node.data.path,
-    series: node.data.series ?? {},
-    isLeaf: node.data.isLeaf,
-    x0: node.x0,
-    y0: node.y0,
-    x1: node.x1,
-    y1: node.y1,
-    fill: colorMode === 'per_parent'
-      ? relativeFill(
-        valueForSeries(node.data, colorSeries),
-        Number.isFinite(parentMinNonZero) ? parentMinNonZero : 0,
-        parentMax,
-      )
-      : absoluteFill(valueForSeries(node.data, colorSeries), node.data.name),
-  }))
-
-  const childLayout = childNodes.map((node) => ({
+  const leafLayout = leafNodes.map((node) => ({
     name: node.data.name,
     path: node.data.path,
     series: node.data.series ?? {},
@@ -235,9 +163,7 @@ const buildLayout = (payload: LayoutRequest['payload']): LayoutPayload => {
   }))
 
   return {
-    parentNodes: parentLayout,
-    childNodes: childLayout,
-    labelSuffix: sizeSeries.replace(/_/g, ' '),
+    leafNodes: leafLayout,
   }
 }
 

@@ -5,7 +5,6 @@ import path from 'node:path'
 const projectRoot = process.cwd()
 const mathlibPath = process.argv[2] || process.env.MATHLIB_PATH
 const maxDepth = Number(process.env.MAX_DEPTH ?? '5')
-const minPercent = Number(process.env.MIN_PERCENT ?? '0.01')
 const outputPath =
   process.argv[3] || path.join(projectRoot, 'src', 'assets', 'mathlib_treemap.json')
 const groupByKey = process.env.GROUP_BY ?? 'loc'
@@ -258,49 +257,8 @@ const normalizeNode = (node) => {
   if (!node.children || node.children.length === 0) {
     return node
   }
-
   const normalizedChildren = node.children.map(normalizeNode)
-  const key = node.series?.[groupByKey] !== undefined ? groupByKey : 'bytes'
-  const total = normalizedChildren.reduce((sum, child) => sum + sumSeriesValue(child, key), 0)
-  if (total === 0) {
-    return { ...node, children: normalizedChildren }
-  }
-
-  const keep = []
-  const otherChildren = []
-
-  for (const child of normalizedChildren) {
-    const childValue = sumSeriesValue(child, key)
-    if (childValue / total < minPercent) {
-      otherChildren.push(child)
-    } else {
-      keep.push(child)
-    }
-  }
-
-  if (otherChildren.length === 0 || keep.length === 0) {
-    return { ...node, children: normalizedChildren }
-  }
-
-  const seriesKeys = new Set()
-  for (const child of otherChildren) {
-    Object.keys(child.series ?? {}).forEach((seriesKey) => seriesKeys.add(seriesKey))
-  }
-  const otherSeries = {}
-  for (const seriesKey of seriesKeys) {
-    otherSeries[seriesKey] = otherChildren.reduce(
-      (sum, child) => sum + sumSeriesValue(child, seriesKey),
-      0,
-    )
-  }
-  const otherNode = normalizeNode({
-    name: 'Miscellaneous',
-    path: `${node.path}/Miscellaneous`,
-    children: otherChildren,
-    series: otherSeries,
-  })
-
-  return { ...node, children: [...keep, otherNode] }
+  return { ...node, children: normalizedChildren }
 }
 
 const toJson = (node, currentPath) => {

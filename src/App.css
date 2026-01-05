@@ -1,7 +1,7 @@
 .page {
   max-width: 120ch;
   margin: 0 auto;
-  padding: 32px 24px 48px;
+  padding: 12px 12px 12px;
   display: flex;
   flex-direction: column;
   gap: 32px;
@@ -509,11 +509,6 @@
   outline: none;
 }
 
-.treemap-separator {
-  border-top: 1px solid var(--border);
-  margin: 4px 0 2px;
-}
-
 .treemap-legend {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -536,23 +531,6 @@
   width: 12px;
   height: 12px;
   border: 1px solid var(--border-strong);
-}
-
-.treemap-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
-.treemap-breadcrumb .ghost-button {
-  padding: 4px 8px;
-}
-
-.breadcrumb-sep {
-  color: var(--muted);
-  margin: 0 6px 0 0;
 }
 
 .treemap-panel {
@@ -591,14 +569,14 @@
 
 .treemap-canvas {
   width: 100%;
-  min-height: 840px;
+  min-height: 600px;
   overflow: hidden;
 }
 
 .treemap-svg {
   display: block;
   width: 100%;
-  height: 840px;
+  height: 600px;
   overflow: hidden;
 }
 
@@ -609,39 +587,8 @@
   cursor: pointer;
 }
 
-.treemap-rect.is-leaf {
-  fill-opacity: 0.55;
-  stroke-dasharray: 3 2;
-}
-
-.treemap-rect.is-folder {
-  fill-opacity: 0.85;
-}
-
-.treemap-parent {
-  stroke-width: 1.5px;
-}
-
-.treemap-parent.is-folder {
-  fill: none;
-}
-
-.treemap-parent-label {
-  fill: var(--muted);
-  font-size: 0.7rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  pointer-events: none;
-}
-
 .treemap-child {
   cursor: pointer;
-}
-
-.treemap-rect.is-hovered,
-.treemap-rect.is-group-hovered {
-  stroke: var(--fl-cyan);
-  stroke-width: 2px;
 }
 
 @keyframes treemap-spin {
@@ -650,40 +597,58 @@
   }
 }
 
-.treemap-rect.is-dim {
-  opacity: 0.25;
-}
-
-.treemap-label {
-  fill: var(--ink);
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  pointer-events: none;
-}
-
-.treemap-tooltip {
-  position: absolute;
-  left: 0;
-  top: 0;
-  padding: 6px 8px;
-  border: 1px solid var(--border-strong);
-  background: var(--bg);
+.treemap-readout {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.85rem;
   color: var(--ink);
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  pointer-events: none;
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 120ms ease, transform 120ms ease;
-  white-space: nowrap;
-  z-index: 2;
+  min-height: 200px;
 }
 
-.treemap-tooltip.is-visible {
-  opacity: 1;
-  transform: translateY(0);
+.treemap-readout-path {
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.treemap-readout-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  color: var(--muted);
+}
+
+.treemap-readout-item {
+  border: 1px solid var(--border);
+  padding: 4px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.treemap-readout-empty {
+  color: var(--muted);
+}
+
+.treemap-readout-key {
+  white-space: nowrap;
+}
+
+.treemap-readout-sep {
+  opacity: 0.6;
+}
+
+.treemap-readout-value {
+  display: inline-block;
+  min-width: 7ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .treemap-placeholder {
@@ -765,10 +730,8 @@
   stroke: #333333;
 }
 
-.theme-reticle .treemap-rect.is-hovered,
-.theme-reticle .treemap-rect.is-group-hovered {
-  stroke: var(--fl-cyan);
-  stroke-width: 2px;
+.theme-reticle .treemap-readout {
+  border-color: #333333;
 }
 
 .theme-reticle .treemap-select select,

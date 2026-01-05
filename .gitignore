@@ -14,6 +14,7 @@ vscode-extension/media
 dist-ssr
 *.local
 scripts/infotree_exporter/.lake
+infotree_output/
 
 # Editor directories and files
 .vscode/*

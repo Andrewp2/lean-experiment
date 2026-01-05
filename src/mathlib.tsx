@@ -5,6 +5,6 @@ import { MathlibPage } from './pages/MathlibPage'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MathlibPage />
+    <MathlibPage embedded />
   </StrictMode>,
 )

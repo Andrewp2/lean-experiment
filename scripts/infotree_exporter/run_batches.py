@@ -44,6 +44,9 @@ def main():
     parser.add_argument("--max-rss-mb", type=int)
     parser.add_argument("--mem-debug", action="store_true")
     parser.add_argument("--continue", dest="continue_flag", action="store_true")
+    parser.add_argument("--full-infotree", action="store_true")
+    parser.add_argument("--gzip", action="store_true")
+    parser.add_argument("--skip-on-error", action="store_true")
     parser.add_argument("--log-file")
     parser.add_argument("--memory-max", default="16G")
     parser.add_argument("--no-systemd", action="store_true")
@@ -59,6 +62,7 @@ def main():
     if args.total is not None and args.total <= 0:
         raise SystemExit("--total must be > 0")
 
+    mathlib_files = None
     if args.total is None and args.to_end:
         mathlib_dir = os.path.join(args.root, "Mathlib")
         if not os.path.isdir(mathlib_dir):
@@ -72,12 +76,37 @@ def main():
         if remaining <= 0:
             raise SystemExit("--start is out of range for Mathlib files")
         args.total = remaining
+    if args.continue_flag:
+        mathlib_dir = os.path.join(args.root, "Mathlib")
+        if not os.path.isdir(mathlib_dir):
+            raise SystemExit(f"Expected Mathlib directory at {mathlib_dir}")
+        mathlib_files = []
+        for root_dir, _dirs, files in os.walk(mathlib_dir):
+            for name in files:
+                if name.endswith(".lean"):
+                    mathlib_files.append(os.path.join(root_dir, name))
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     end = args.start + args.total
     for batch_start in range(args.start, end, args.batch_size):
         remaining = end - batch_start
         limit = min(args.batch_size, remaining)
+        if args.continue_flag:
+            batch_end = batch_start + limit
+            slice_files = mathlib_files[batch_start:batch_end]
+            if slice_files:
+                all_done = True
+                for path in slice_files:
+                    rel = os.path.relpath(path, args.root)
+                    base, _ext = os.path.splitext(rel)
+                    out_name = base + (".json.gz" if args.gzip else ".json")
+                    out_path = os.path.join(args.out, out_name)
+                    if not os.path.exists(out_path):
+                        all_done = False
+                        break
+                if all_done:
+                    print(f"[infotree_export] continue skip batch {batch_start}..{batch_end}")
+                    continue
         if args.no_systemd:
             cmd = [
                 "lake",
@@ -124,6 +153,12 @@ def main():
             cmd.append("--mem-debug")
         if args.continue_flag:
             cmd.append("--continue")
+        if args.full_infotree:
+            cmd.append("--full-infotree")
+        if args.gzip:
+            cmd.append("--gzip")
+        if args.skip_on_error:
+            cmd.append("--skip-on-error")
         exit_code = run_and_tee(cmd, script_dir, args.log_file)
         if exit_code != 0:
             print(f"[infotree_export] batch failed with exit code {exit_code}", file=sys.stderr)

@@ -171,6 +171,300 @@ def InfoTreeCounts.toMetricsJson (c : InfoTreeCounts) : Json :=
     ("infotree_tactic_steps", toJson tacticSteps)
   ]
 
+def jsonArray (items : Array Json) : Json :=
+  Json.arr items
+
+def optionToJson (to : α → Json) (value : Option α) : Json :=
+  match value with
+  | some v => to v
+  | none => Json.null
+
+def nameToJson (name : Name) : Json :=
+  toJson name.toString
+
+def rangeToJson (range : Syntax.Range) : Json :=
+  Json.mkObj [
+    ("start", toJson range.start.byteIdx),
+    ("stop", toJson range.stop.byteIdx)
+  ]
+
+def syntaxToJson (stx : Syntax) : Json :=
+  let range := optionToJson rangeToJson (stx.getRange?)
+  Json.mkObj [
+    ("kind", toJson stx.getKind.toString),
+    ("range", range)
+  ]
+
+def exprToJson (expr : Expr) : Json :=
+  toJson (toString expr)
+
+def lctxSizeToJson (lctx : LocalContext) : Json :=
+  toJson lctx.decls.size
+
+def mvarIdsToJson (mvars : List MVarId) : Json :=
+  jsonArray <| mvars.toArray.map (fun mvar => toJson mvar.name.toString)
+
+def fvarIdToJson (fvar : FVarId) : Json :=
+  toJson fvar.name.toString
+
+def partialContextToJson (ctx : PartialContextInfo) : Json :=
+  match ctx with
+  | .commandCtx info =>
+      Json.mkObj [
+        ("kind", toJson "commandCtx"),
+        ("currNamespace", nameToJson info.currNamespace),
+        ("openDecls", jsonArray <| info.openDecls.toArray.map (fun decl => toJson (toString decl)))
+      ]
+  | .parentDeclCtx parentDecl =>
+      Json.mkObj [
+        ("kind", toJson "parentDeclCtx"),
+        ("parentDecl", nameToJson parentDecl)
+      ]
+  | .autoImplicitCtx autoImplicits =>
+      Json.mkObj [
+        ("kind", toJson "autoImplicitCtx"),
+        ("autoImplicits", jsonArray <| autoImplicits.map exprToJson)
+      ]
+
+def termInfoToJson (info : TermInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "term"),
+    ("elaborator", nameToJson info.elaborator),
+    ("stx", syntaxToJson info.stx),
+    ("lctxSize", lctxSizeToJson info.lctx),
+    ("expectedType", optionToJson exprToJson info.expectedType?),
+    ("expr", exprToJson info.expr),
+    ("isBinder", toJson info.isBinder),
+    ("isDisplayableTerm", toJson info.isDisplayableTerm)
+  ]
+
+def partialTermInfoToJson (info : PartialTermInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "partialTerm"),
+    ("elaborator", nameToJson info.elaborator),
+    ("stx", syntaxToJson info.stx),
+    ("lctxSize", lctxSizeToJson info.lctx),
+    ("expectedType", optionToJson exprToJson info.expectedType?)
+  ]
+
+def commandInfoToJson (info : CommandInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "command"),
+    ("elaborator", nameToJson info.elaborator),
+    ("stx", syntaxToJson info.stx)
+  ]
+
+def tacticInfoToJson (info : TacticInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "tactic"),
+    ("elaborator", nameToJson info.elaborator),
+    ("stx", syntaxToJson info.stx),
+    ("goalsBefore", mvarIdsToJson info.goalsBefore),
+    ("goalsAfter", mvarIdsToJson info.goalsAfter)
+  ]
+
+def macroExpansionInfoToJson (info : MacroExpansionInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "macroExpansion"),
+    ("stx", syntaxToJson info.stx),
+    ("output", syntaxToJson info.output),
+    ("lctxSize", lctxSizeToJson info.lctx)
+  ]
+
+def optionInfoToJson (info : OptionInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "option"),
+    ("stx", syntaxToJson info.stx),
+    ("optionName", nameToJson info.optionName),
+    ("declName", nameToJson info.declName)
+  ]
+
+def errorNameInfoToJson (info : ErrorNameInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "errorName"),
+    ("stx", syntaxToJson info.stx),
+    ("errorName", nameToJson info.errorName)
+  ]
+
+def fieldInfoToJson (info : FieldInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "field"),
+    ("projName", nameToJson info.projName),
+    ("fieldName", nameToJson info.fieldName),
+    ("lctxSize", lctxSizeToJson info.lctx),
+    ("val", exprToJson info.val),
+    ("stx", syntaxToJson info.stx)
+  ]
+
+def completionInfoToJson (info : CompletionInfo) : Json :=
+  match info with
+  | .dot termInfo expectedType? =>
+      Json.mkObj [
+        ("kind", toJson "completion.dot"),
+        ("termInfo", termInfoToJson termInfo),
+        ("expectedType", optionToJson exprToJson expectedType?)
+      ]
+  | .id stx id danglingDot lctx expectedType? =>
+      Json.mkObj [
+        ("kind", toJson "completion.id"),
+        ("stx", syntaxToJson stx),
+        ("id", nameToJson id),
+        ("danglingDot", toJson danglingDot),
+        ("lctxSize", lctxSizeToJson lctx),
+        ("expectedType", optionToJson exprToJson expectedType?)
+      ]
+  | .dotId stx id lctx expectedType? =>
+      Json.mkObj [
+        ("kind", toJson "completion.dotId"),
+        ("stx", syntaxToJson stx),
+        ("id", nameToJson id),
+        ("lctxSize", lctxSizeToJson lctx),
+        ("expectedType", optionToJson exprToJson expectedType?)
+      ]
+  | .fieldId stx id lctx structName =>
+      Json.mkObj [
+        ("kind", toJson "completion.fieldId"),
+        ("stx", syntaxToJson stx),
+        ("id", optionToJson nameToJson id),
+        ("lctxSize", lctxSizeToJson lctx),
+        ("structName", nameToJson structName)
+      ]
+  | .namespaceId stx =>
+      Json.mkObj [
+        ("kind", toJson "completion.namespaceId"),
+        ("stx", syntaxToJson stx)
+      ]
+  | .option stx =>
+      Json.mkObj [
+        ("kind", toJson "completion.option"),
+        ("stx", syntaxToJson stx)
+      ]
+  | .errorName stx partialId =>
+      Json.mkObj [
+        ("kind", toJson "completion.errorName"),
+        ("stx", syntaxToJson stx),
+        ("partialId", syntaxToJson partialId)
+      ]
+  | .endSection stx id? danglingDot scopeNames =>
+      Json.mkObj [
+        ("kind", toJson "completion.endSection"),
+        ("stx", syntaxToJson stx),
+        ("id", optionToJson nameToJson id?),
+        ("danglingDot", toJson danglingDot),
+        ("scopeNames", jsonArray <| scopeNames.toArray.map toJson)
+      ]
+  | .tactic stx =>
+      Json.mkObj [
+        ("kind", toJson "completion.tactic"),
+        ("stx", syntaxToJson stx)
+      ]
+
+def userWidgetInfoToJson (info : UserWidgetInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "userWidget"),
+    ("stx", syntaxToJson info.stx),
+    ("widgetId", nameToJson info.id),
+    ("javascriptHash", toJson info.javascriptHash)
+  ]
+
+def customInfoToJson (info : CustomInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "custom"),
+    ("stx", syntaxToJson info.stx)
+  ]
+
+def fvarAliasInfoToJson (info : FVarAliasInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "fvarAlias"),
+    ("userName", nameToJson info.userName),
+    ("id", fvarIdToJson info.id),
+    ("baseId", fvarIdToJson info.baseId)
+  ]
+
+def fieldRedeclInfoToJson (info : FieldRedeclInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "fieldRedecl"),
+    ("stx", syntaxToJson info.stx)
+  ]
+
+def delabTermInfoToJson (info : DelabTermInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "delabTerm"),
+    ("elaborator", nameToJson info.elaborator),
+    ("stx", syntaxToJson info.stx),
+    ("lctxSize", lctxSizeToJson info.lctx),
+    ("expectedType", optionToJson exprToJson info.expectedType?),
+    ("expr", exprToJson info.expr),
+    ("isBinder", toJson info.isBinder),
+    ("isDisplayableTerm", toJson info.isDisplayableTerm),
+    ("explicit", toJson info.explicit),
+    ("docString", optionToJson toJson info.docString?),
+    ("location", optionToJson (fun loc => toJson (reprStr loc)) info.location?)
+  ]
+
+def choiceInfoToJson (info : ChoiceInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "choice"),
+    ("elaborator", nameToJson info.elaborator),
+    ("stx", syntaxToJson info.stx)
+  ]
+
+def docInfoToJson (info : DocInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "doc"),
+    ("elaborator", nameToJson info.elaborator),
+    ("stx", syntaxToJson info.stx)
+  ]
+
+def docElabInfoToJson (info : DocElabInfo) : Json :=
+  Json.mkObj [
+    ("kind", toJson "docElab"),
+    ("elaborator", nameToJson info.elaborator),
+    ("stx", syntaxToJson info.stx),
+    ("name", nameToJson info.name),
+    ("docKind", toJson (reprStr info.kind))
+  ]
+
+def infoToJson (info : Info) : Json :=
+  match info with
+  | .ofTacticInfo i => tacticInfoToJson i
+  | .ofTermInfo i => termInfoToJson i
+  | .ofPartialTermInfo i => partialTermInfoToJson i
+  | .ofCommandInfo i => commandInfoToJson i
+  | .ofMacroExpansionInfo i => macroExpansionInfoToJson i
+  | .ofOptionInfo i => optionInfoToJson i
+  | .ofErrorNameInfo i => errorNameInfoToJson i
+  | .ofFieldInfo i => fieldInfoToJson i
+  | .ofCompletionInfo i => completionInfoToJson i
+  | .ofUserWidgetInfo i => userWidgetInfoToJson i
+  | .ofCustomInfo i => customInfoToJson i
+  | .ofFVarAliasInfo i => fvarAliasInfoToJson i
+  | .ofFieldRedeclInfo i => fieldRedeclInfoToJson i
+  | .ofDelabTermInfo i => delabTermInfoToJson i
+  | .ofChoiceInfo i => choiceInfoToJson i
+  | .ofDocInfo i => docInfoToJson i
+  | .ofDocElabInfo i => docElabInfoToJson i
+
+partial def infoTreeToJson (tree : InfoTree) : Json :=
+  match tree with
+  | .context ctx child =>
+      Json.mkObj [
+        ("kind", toJson "context"),
+        ("context", partialContextToJson ctx),
+        ("child", infoTreeToJson child)
+      ]
+  | .hole mvarId =>
+      Json.mkObj [
+        ("kind", toJson "hole"),
+        ("mvarId", toJson mvarId.name.toString)
+      ]
+  | .node info children =>
+      Json.mkObj [
+        ("kind", toJson "node"),
+        ("info", infoToJson info),
+        ("children", jsonArray <| children.toArray.map infoTreeToJson)
+      ]
+
 structure Config where
   rootDir : System.FilePath := "."
   outDir : System.FilePath := "infotree_out"
@@ -184,6 +478,9 @@ structure Config where
   rssLogMb : Option Nat := none
   memDebug : Bool := false
   continueFlag : Bool := false
+  fullInfotree : Bool := false
+  gzip : Bool := false
+  skipOnError : Bool := false
   deriving Inhabited
 
 def parseArgs (args : List String) : IO Config := do
@@ -216,6 +513,10 @@ def parseArgs (args : List String) : IO Config := do
         match value.toNat? with
         | some n => go { cfg with maxRssMb := some n } rest
         | none => throw <| IO.userError s!"Invalid --max-rss-mb value: {value}"
+    | "--full-infotree" :: rest =>
+        go { cfg with fullInfotree := true } rest
+    | "--gzip" :: rest =>
+        go { cfg with gzip := true } rest
     | "--single" :: value :: rest =>
         go { cfg with singleFile := some value } rest
     | "--rss-log-mb" :: value :: rest =>
@@ -226,6 +527,8 @@ def parseArgs (args : List String) : IO Config := do
         go { cfg with memDebug := true } rest
     | "--continue" :: rest =>
         go { cfg with continueFlag := true } rest
+    | "--skip-on-error" :: rest =>
+        go { cfg with skipOnError := true } rest
     | flag :: _ =>
         throw <| IO.userError s!"Unknown argument: {flag}"
   go {} args
@@ -248,6 +551,19 @@ def getLeanFiles (root : System.FilePath) : IO (Array System.FilePath) := do
     throw <| IO.userError s!"Expected Mathlib directory at {mathlibDir}"
   let files ← mathlibDir.walkDir
   return files.filter (·.extension == some "lean")
+
+def getLakePackagePaths (root : System.FilePath) : IO (Array System.FilePath) := do
+  let pkgsDir := root / ".lake" / "packages"
+  if !(← pkgsDir.isDir) then
+    return #[]
+  let entries ← pkgsDir.readDir
+  let mut paths : Array System.FilePath := #[]
+  for entry in entries do
+    if (← entry.path.isDir) then
+      let pkgLean := entry.path / ".lake" / "build" / "lib" / "lean"
+      if (← pkgLean.isDir) then
+        paths := paths.push pkgLean
+  return paths
 
 def dropExtension (path : System.FilePath) : System.FilePath :=
   match path.extension with
@@ -429,6 +745,12 @@ def buildContinuationArgs (cfg : Config) (start : Nat) (remaining : Option Nat) 
       args := args.push "--mem-debug"
     if cfg.continueFlag then
       args := args.push "--continue"
+    if cfg.skipOnError then
+      args := args.push "--skip-on-error"
+    if cfg.fullInfotree then
+      args := args.push "--full-infotree"
+    if cfg.gzip then
+      args := args.push "--gzip"
     return args
 
 def buildSingleFileArgs (cfg : Config) (file : System.FilePath) : Array String :=
@@ -448,21 +770,33 @@ def buildSingleFileArgs (cfg : Config) (file : System.FilePath) : Array String :
       args := args.push "--mem-debug"
     if cfg.continueFlag then
       args := args.push "--continue"
+    if cfg.skipOnError then
+      args := args.push "--skip-on-error"
+    if cfg.fullInfotree then
+      args := args.push "--full-infotree"
+    if cfg.gzip then
+      args := args.push "--gzip"
     return args
 
 structure SetupCache where
   setup : ModuleSetup
   searchPaths : Array System.FilePath
+  importsKey : Array Name
 
 initialize setupCacheRef : IO.Ref (Option SetupCache) ← IO.mkRef none
 
 def resetSetupCache : IO Unit := do
   setupCacheRef.set none
 
+def importsKeyFromHeader (stx : Elab.HeaderSyntax) : Array Name :=
+  stx.toModuleHeader.imports.map (fun imp => imp.module)
+
 unsafe def getSetupCache (doc : Lean.Server.DocumentMeta) (stx : Elab.HeaderSyntax) (verbose : Bool) :
     IO SetupCache := do
+  let importsKey := importsKeyFromHeader stx
   if let some cache ← setupCacheRef.get then
-    return cache
+    if cache.importsKey == importsKey then
+      return cache
   let header := stx.toModuleHeader
   let fileSetupResult ← Lean.Server.FileWorker.setupFile doc header (fun _ => pure ())
   if verbose then
@@ -479,31 +813,39 @@ unsafe def getSetupCache (doc : Lean.Server.DocumentMeta) (stx : Elab.HeaderSynt
   let setup := fileSetupResult.setup
   let searchPaths := searchPathsFromImportArts setup.importArts
   mergeSearchPath searchPaths
-  let cache := { setup, searchPaths }
+  let cache := { setup, searchPaths, importsKey }
   setupCacheRef.set (some cache)
   return cache
 
 unsafe def runFrontendForTrees (doc : Lean.Server.DocumentMeta) (verbose : Bool) (errorLimit : Nat)
-    (memDebug : Bool) :
-    IO (InfoTreeCounts × Nat × Array Message) := do
+    (memDebug : Bool) (fullInfotree : Bool) :
+    IO (InfoTreeCounts × Nat × Array Message × Option (Array InfoTree)) := do
+  let _ := verbose
   let inputCtx := doc.mkInputContext
   let cmdlineOpts := Lean.internal.cmdlineSnapshots.setIfNotSet {} true
+  let cmdlineOpts := cmdlineOpts.setBool `pp.unicode.fun true
+  let cmdlineOpts := cmdlineOpts.setBool `autoImplicit false
+  let cmdlineOpts := cmdlineOpts.setBool `experimental.module true
+  let cmdlineOpts := cmdlineOpts.setBool `backward.privateInPublic true
+  let cmdlineOpts := cmdlineOpts.setBool `backward.privateInPublic.warn false
+  let cmdlineOpts := cmdlineOpts.setBool `backward.proofsInPublic true
+  let cmdlineOpts := cmdlineOpts.setNat `maxSynthPendingDepth 3
   let ctx : ProcessingContext := { inputCtx with }
   let setupFn (stx : Elab.HeaderSyntax) :
       ProcessingT IO (Except Lean.Language.Lean.HeaderProcessedSnapshot
         Lean.Language.Lean.SetupImportsResult) := do
-    let cache ← liftM <| getSetupCache doc stx verbose
     let header := stx.toModuleHeader
-    let mergedOpts := cmdlineOpts.mergeBy (fun _ _ fileOpt => fileOpt) cache.setup.options.toOptions
-    let mergedOpts := Elab.async.set mergedOpts false
+    let mergedOpts := Elab.async.setIfNotSet cmdlineOpts true
+    let mergedOpts := Elab.inServer.set mergedOpts false
+    let mergedOpts ← liftM <| Lean.Language.Lean.reparseOptions mergedOpts
     return .ok {
       trustLevel := 0
-      package? := cache.setup.package?
+      package? := none
       mainModuleName := doc.mod
-      isModule := strictOr cache.setup.isModule header.isModule
+      isModule := header.isModule
       imports := header.imports
-      plugins := cache.setup.plugins
-      importArts := cache.setup.importArts
+      plugins := #[]
+      importArts := {}
       opts := mergedOpts
     }
   let snap ← Lean.Language.Lean.process setupFn none ctx
@@ -515,32 +857,45 @@ unsafe def runFrontendForTrees (doc : Lean.Server.DocumentMeta) (verbose : Bool)
   let _ ← snaps.runAndReport cmdlineOpts false {}
   if memDebug then
     logMemDebug "after_runAndReport"
-  let (counts, errorCount, errorMessages) ←
-    snaps.foldM (init := ({}, 0, #[])) fun (counts, errorCount, errorMessages) snapshot => do
+  let (counts, errorCount, errorMessages, trees) ←
+    snaps.foldM (init := ({}, 0, #[], if fullInfotree then some #[] else none))
+      fun (counts, errorCount, errorMessages, trees) snapshot => do
       let mut counts := counts
       let mut errorCount := errorCount
       let mut errorMessages := errorMessages
+      let mut trees := trees
       for msg in snapshot.diagnostics.msgLog.toArray do
         if msg.severity == MessageSeverity.error then
           errorCount := errorCount + 1
           if errorMessages.size < errorLimit then
             errorMessages := errorMessages.push msg
       match snapshot.infoTree? with
-      | some tree => counts := countTree tree counts
+      | some tree =>
+          counts := countTree tree counts
+          match trees with
+          | some acc => trees := some (acc.push tree)
+          | none => pure ()
       | none => pure ()
-      return (counts, errorCount, errorMessages)
+      return (counts, errorCount, errorMessages, trees)
   if memDebug then
     logMemDebug "after_fold"
   Runtime.forget snaps
   if memDebug then
     logMemDebug "after_forget"
-  return (counts, errorCount, errorMessages)
+  return (counts, errorCount, errorMessages, trees)
+
+def outputJsonPaths (cfg : Config) (relativePath : System.FilePath) :
+    System.FilePath × System.FilePath := Id.run do
+  let basePath := cfg.outDir / relativePath
+  let jsonPath := basePath.withExtension "json"
+  let finalPath := if cfg.gzip then basePath.withExtension "json.gz" else jsonPath
+  return (jsonPath, finalPath)
 
 unsafe def exportFile (cfg : Config) (file : System.FilePath) (index : Nat) (total : Nat) : IO Unit := do
   let relativePath ← relativeToRoot cfg.rootDir file
-  let outputPath := cfg.outDir / relativePath |>.withExtension "json"
+  let (jsonPath, finalPath) := outputJsonPaths cfg relativePath
   if cfg.continueFlag then
-    if (← outputPath.pathExists) then
+    if (← finalPath.pathExists) then
       if cfg.verbose then
         IO.println s!"[{index + 1}/{total}] {relativePath} (skip)"
       return ()
@@ -555,17 +910,35 @@ unsafe def exportFile (cfg : Config) (file : System.FilePath) (index : Nat) (tot
     text := input.toFileMap
     dependencyBuildMode := .never
   }
-  let (counts, errorCount, errors) ←
-    runFrontendForTrees doc cfg.verbose cfg.errorLimit cfg.memDebug
+  let (counts, errorCount, errors, trees?) ←
+    runFrontendForTrees doc cfg.verbose cfg.errorLimit cfg.memDebug cfg.fullInfotree
   if errorCount > 0 then
     IO.eprintln s!"[infotree_export] errors while processing {relativePath}"
     for msg in errors do
       let msg ← msg.toString
       IO.eprintln msg
-  let outputDir := outputPath.parent.getD cfg.outDir
+    if cfg.skipOnError then
+      IO.eprintln s!"[infotree_export] skipping output for {relativePath}"
+      return ()
+  let outputDir := finalPath.parent.getD cfg.outDir
   IO.FS.createDirAll outputDir
-  let payload := Json.mkObj [("metrics", counts.toMetricsJson)]
-  IO.FS.writeFile outputPath (Json.compress payload)
+  let payload :=
+    if cfg.fullInfotree then
+      let trees := trees?.getD #[]
+      Json.mkObj [
+        ("infotrees", jsonArray <| trees.map infoTreeToJson)
+      ]
+    else
+      Json.mkObj [("metrics", counts.toMetricsJson)]
+  IO.FS.writeFile jsonPath (Json.compress payload)
+  if cfg.gzip then
+    let child ← IO.Process.spawn {
+      cmd := "gzip"
+      args := #["-f", jsonPath.toString]
+      stdout := .inherit
+      stderr := .inherit
+    }
+    let _ ← child.wait
   if let some thresholdMb := cfg.rssLogMb then
     if let some rssKb ← readRssKb then
       let rssMb := rssKb / 1024
@@ -615,6 +988,9 @@ unsafe def main (args : List String) : IO Unit := do
   IO.Process.setCurrentDir cfg.rootDir
   Lean.initSearchPath (← Lean.findSysroot)
   Lean.enableInitializersExecution
+  let lakeLib := cfg.rootDir / ".lake" / "build" / "lib" / "lean"
+  let pkgPaths ← getLakePackagePaths cfg.rootDir
+  mergeSearchPath (#[lakeLib, cfg.rootDir] ++ pkgPaths)
   if let some file := cfg.singleFile then
     if let some maxSeconds := cfg.maxSeconds then
       let ok ← runSingleFileWithTimeout cfg file maxSeconds
