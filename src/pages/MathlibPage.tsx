@@ -69,7 +69,6 @@ type BuildNode = {
 }
 
 const MAX_DEPTH = 5
-const GROUP_BY = 'loc'
 const portingNoteRegex = /porting[\s_-]*note/gi
 const adaptationNoteRegex = /#adaptation_note\b/gi
 
@@ -430,9 +429,7 @@ const useTreemap = (
       .attr('height', (d) => d.y1 - d.y0)
       .attr('class', 'treemap-rect treemap-child')
       .attr('fill', (d) => d.fill)
-      .style('stroke-width', (d) => {
-        return 0
-      })
+      .style('stroke-width', 0)
       .on('click', (_, d) => {
         const target = buildFileTarget(d)
         if (target) {

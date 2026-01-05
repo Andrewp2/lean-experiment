@@ -278536,3 +278536,643 @@ Running as unit: run-rcb57a8a2c52d4d0c9b1f8af1a6a42a81.scope; invocation ID: ed1
   1156 kB  [anon]
   1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
 Running as unit: run-r5c22e92f19cb41e58232e4a2e2dd9f05.scope; invocation ID: 933c3de0f0e14a9aaef765b2426949f9
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Int/Parity.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85728 kB
+  Pss:               83693 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63660 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61884 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1756 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r25ac3531b87148f7a1948373cde9d94f.scope; invocation ID: 5551293431044a6fa6d3d7bf0eb9e8d4
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Int/Defs.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85808 kB
+  Pss:               83776 kB
+  Shared_Clean:       2056 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63744 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61944 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1780 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r4071df0db74244538ffaadb54fcd518a.scope; invocation ID: 67d7e2f1ecc441838656e06ba17dcdfd
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Shrink.lean: rss 84MB
+[infotree_export] smaps_rollup:
+  Rss:               86024 kB
+  Pss:               83999 kB
+  Shared_Clean:       2048 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63972 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  62188 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1764 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-rd6d531c07a10476e9d3c62ba6410da6b.scope; invocation ID: 30e7c8d7fc9f4139a49c5181ec48db09
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/MinimalAxioms.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85980 kB
+  Pss:               83955 kB
+  Shared_Clean:       2048 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63928 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  62188 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1720 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-rdcdf986ecb4c454886b34be35f8ee710.scope; invocation ID: bdff27b74eed4b1084585b620f6a9eb3
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Basic.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85728 kB
+  Pss:               83694 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63660 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61884 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1756 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-rdfd023df2841479782ba32fb77a6056c.scope; invocation ID: 56f77f67a113487093c605ac34ec63d4
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Ext.lean: rss 84MB
+[infotree_export] smaps_rollup:
+  Rss:               86024 kB
+  Pss:               84003 kB
+  Shared_Clean:       2044 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63972 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  62188 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1764 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r1ee17169211f4947a916e19f65c47cb2.scope; invocation ID: af50b151058641ab8c3de62fa8b9ab7a
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Nat.lean: rss 82MB
+[infotree_export] smaps_rollup:
+  Rss:               84924 kB
+  Pss:               82896 kB
+  Shared_Clean:       2052 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     62868 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61096 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1752 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r6feee2b2cd85464dbcd6c8d50a04882f.scope; invocation ID: c8473ef48aaf497a86f74177862f8169
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Subring/IntPolynomial.lean: rss 84MB
+[infotree_export] smaps_rollup:
+  Rss:               86016 kB
+  Pss:               84002 kB
+  Shared_Clean:       2036 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63972 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  62188 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1764 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-reafc5939b3d948b390ffa06eeca0c7b8.scope; invocation ID: cb8f0f55fbfd45a79cbc5e6dc165fa78
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Subring/Defs.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85220 kB
+  Pss:               83203 kB
+  Shared_Clean:       2040 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63176 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61480 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1676 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r0ff18d6aabdc45dd8d51294f45f919fb.scope; invocation ID: 77c36d9363ea4bf0acbcd4f061fcd3aa
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Subring/Basic.lean: rss 84MB
+[infotree_export] smaps_rollup:
+  Rss:               86080 kB
+  Pss:               84046 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     64012 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  62272 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1720 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r4cecee733d7a40469fcd5934798f4b77.scope; invocation ID: b5e7ef0e71c347e992daf502e20fa290
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Subring/MulOpposite.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85256 kB
+  Pss:               83222 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63192 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61500 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1672 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-re025e081e8ab4047a11040e852fe4885.scope; invocation ID: 3bd982a2bfdd49efa1d87ac0b410ac25
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Action/Submonoid.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85240 kB
+  Pss:               83206 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63176 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61480 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1676 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r8e7307504fd34ecbb770f5f321947804.scope; invocation ID: 5670324aebc64f899118ff62d409a25d
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Action/Invariant.lean: rss 82MB
+[infotree_export] smaps_rollup:
+  Rss:               84936 kB
+  Pss:               82901 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     62868 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61096 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1752 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-rbb344c224c704403b45ee89570d73e36.scope; invocation ID: b8a6ea7a59574d39a8d2c4178e38ce59
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Action/End.lean: rss 82MB
+[infotree_export] smaps_rollup:
+  Rss:               84636 kB
+  Pss:               82602 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     62568 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  60856 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1692 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r3369f1ca292d4bc6b881343fa7569018.scope; invocation ID: 5d0afda301204cd195ae37bd5a476a36
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Action/Field.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85228 kB
+  Pss:               83203 kB
+  Shared_Clean:       2048 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63176 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61480 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1676 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r77bb40b9bdab47e6b5a13120dcbc7af6.scope; invocation ID: 5c465837ceb64a63bbb78a79cc2c4939
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Action/Rat.lean: rss 82MB
+[infotree_export] smaps_rollup:
+  Rss:               84988 kB
+  Pss:               82967 kB
+  Shared_Clean:       2044 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     62936 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61112 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1804 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r445a872f45ae4b81a490299ded93c1a4.scope; invocation ID: 589c53b666904b79950b24bcb48dcba3
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Action/Pointwise/Set.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85808 kB
+  Pss:               83774 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63744 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61944 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1780 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r9ad0a6eeb1f44579874865e3c2ef4756.scope; invocation ID: 7ab74555846c450998a65028f07e21ac
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/PUnit.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85244 kB
+  Pss:               83210 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63176 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61480 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1676 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-rda6c80a785c54295ac3bc65075a3d205.scope; invocation ID: 7e1e83d506244942853448021eb8c51e
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Divisibility/Basic.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85312 kB
+  Pss:               83291 kB
+  Shared_Clean:       2044 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63264 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61472 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1772 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r68894006c27e4a8f8d3768b493d11dcc.scope; invocation ID: f5f21641610a48e296024587263cae10
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Divisibility/Lemmas.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85236 kB
+  Pss:               83201 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63172 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61372 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1780 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r10e246f48ab34ff0b192068757df354e.scope; invocation ID: 8b2fcc32b70e4b55842103e94d1201b6
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Pi.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85476 kB
+  Pss:               83442 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63408 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61616 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1772 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r37f539f518244d99a1900deba0fc085f.scope; invocation ID: ca91d1bd743c42ddbf34ba9b93bbb12a
+[infotree_export] mem-debug after_gc Mathlib/Algebra/Ring/Hom/Basic.lean: rss 82MB
+[infotree_export] smaps_rollup:
+  Rss:               84636 kB
+  Pss:               82602 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     62568 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  60856 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1692 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r34ab2941c8ff4cada878bed7aaf3aaf6.scope; invocation ID: 1292fd9ffad0497bbd0ce9a76a7b9f66
+[infotree_export] mem-debug after_gc Mathlib/Algebra/NoZeroSMulDivisors/Defs.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85332 kB
+  Pss:               83298 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63264 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61472 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1772 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-rb65a6b2c0ab542b1a62a956cc1578973.scope; invocation ID: 5c32b1301f1743d5bab85b068bc33f53
+[infotree_export] mem-debug after_gc Mathlib/Algebra/NoZeroSMulDivisors/Prod.lean: rss 84MB
+[infotree_export] smaps_rollup:
+  Rss:               86080 kB
+  Pss:               84046 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     64012 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  62272 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1720 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r260116d21ab54963ade4c1b41e5adf59.scope; invocation ID: e2bcece732034d59b197484e5ee09095
+[infotree_export] mem-debug after_gc Mathlib/Algebra/HierarchyDesign.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85332 kB
+  Pss:               83298 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63264 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61472 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1772 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-ra12fd9bba4bd4a22a997173a7040dc97.scope; invocation ID: 83f5420d7e6f49dcbdaa41af973a61d9
+[infotree_export] mem-debug after_gc Mathlib/Algebra/AddConstMap/Basic.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85940 kB
+  Pss:               83912 kB
+  Shared_Clean:       2052 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63880 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  62144 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1716 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-rddae0624ff9a43c3af9aea0973eca4b6.scope; invocation ID: 706437a80a474bc7b09777634626607c
+[infotree_export] mem-debug after_gc Mathlib/Tactic.lean: rss 82MB
+[infotree_export] smaps_rollup:
+  Rss:               84856 kB
+  Pss:               82822 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     62788 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61064 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1704 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-re1f19f2cea63435dbbc3ced03aeb95c4.scope; invocation ID: a39ae8357cfc4e81b50050ec83a92d73
+[infotree_export] mem-debug after_gc Mathlib/CategoryTheory/Types/Basic.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85308 kB
+  Pss:               83290 kB
+  Shared_Clean:       2040 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63264 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61472 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1772 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-rdd4aba6bafe84a9683b95080d3594df3.scope; invocation ID: c483f5c285594bc9b311657cde8b9c68
+[infotree_export] mem-debug after_gc Mathlib/CategoryTheory/Types/Monomorphisms.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85256 kB
+  Pss:               83220 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63192 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61500 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1672 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r4c2376447fe5475db220261fb6f7895b.scope; invocation ID: 5c19beac21404826b4ba5756f9641c35
+[infotree_export] mem-debug after_gc Mathlib/CategoryTheory/Functor/FunctorHom.lean: rss 82MB
+[infotree_export] smaps_rollup:
+  Rss:               84636 kB
+  Pss:               82602 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     62568 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  60856 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1692 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r632d5aba41d242f1b4c3917ad2f91664.scope; invocation ID: fdc6d73d7be74c0abea83b6a16a8ebff
+[infotree_export] mem-debug after_gc Mathlib/CategoryTheory/Functor/FullyFaithful.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85228 kB
+  Pss:               83200 kB
+  Shared_Clean:       2052 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63172 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61372 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1780 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r661ec0b92b2f4d9a99f57451bf352eda.scope; invocation ID: 952a838bce534ae0aaf0746fdfd8f7be
+[infotree_export] mem-debug after_gc Mathlib/CategoryTheory/Functor/KanExtension/Pointwise.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85932 kB
+  Pss:               83907 kB
+  Shared_Clean:       2048 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63880 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  62144 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1716 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-ra0ef133f0a474f23a1cf23d43b0c2b5f.scope; invocation ID: 92c968b87d0e4496aa6dab7379d79774
+[infotree_export] mem-debug after_gc Mathlib/CategoryTheory/Functor/KanExtension/Basic.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85996 kB
+  Pss:               83967 kB
+  Shared_Clean:       2052 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63940 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  62152 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1768 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-ra4428526eb5948cdb2719e0faf5c2b65.scope; invocation ID: f04e4ef7ef82481c9b9efad4722b9cb2
+[infotree_export] mem-debug after_gc Mathlib/CategoryTheory/Functor/KanExtension/DenseAt.lean: rss 82MB
+[infotree_export] smaps_rollup:
+  Rss:               84636 kB
+  Pss:               82601 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     62568 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  60856 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1692 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r739813c9e2bc404b9453468615bdc34e.scope; invocation ID: 1a77096d30424c05ba793c06b215a2a1
+[infotree_export] mem-debug after_gc Mathlib/CategoryTheory/Functor/KanExtension/Adjunction.lean: rss 84MB
+[infotree_export] smaps_rollup:
+  Rss:               86060 kB
+  Pss:               84038 kB
+  Shared_Clean:       2044 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     64012 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  62272 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1720 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r8ad20bc75f9f4d8494ee0c7d42550c8e.scope; invocation ID: 448cfe3bb79e4af49ed61111402333bd
+[infotree_export] mem-debug after_gc Mathlib/CategoryTheory/Functor/KanExtension/Dense.lean: rss 84MB
+[infotree_export] smaps_rollup:
+  Rss:               86080 kB
+  Pss:               84044 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     64012 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  62272 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1720 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-r0dff503e84094ef4b265f642c9a1a81b.scope; invocation ID: e8990e60d42641be86a0f1e5350da0b7
+[infotree_export] mem-debug after_gc Mathlib/CategoryTheory/Functor/KanExtension/Preserves.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85240 kB
+  Pss:               83204 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63176 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61480 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1676 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-rce79e0d1f32b4ca5879c0a679d736bb1.scope; invocation ID: a46e05b1cedb4206aeec19a2355aca17
+[infotree_export] mem-debug after_gc Mathlib/CategoryTheory/Functor/Functorial.lean: rss 84MB
+[infotree_export] smaps_rollup:
+  Rss:               86032 kB
+  Pss:               84002 kB
+  Shared_Clean:       2052 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63972 kB
+  Private_Dirty:     20008 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  62188 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1764 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-rb06e9050d8f4448faf23ea01e0184ff5.scope; invocation ID: c7b1cb3daef04c988ad87252c1813178
+[infotree_export] mem-debug after_gc Mathlib/CategoryTheory/Functor/ReflectsIso/Balanced.lean: rss 82MB
+[infotree_export] smaps_rollup:
+  Rss:               84984 kB
+  Pss:               82962 kB
+  Shared_Clean:       2044 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     62936 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  61112 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1804 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-re6709c965acd4ecf9f577402292d072f.scope; invocation ID: 8e927ca7636a41a3bfad294748f019a1
+[infotree_export] mem-debug after_gc Mathlib/CategoryTheory/Functor/ReflectsIso/Basic.lean: rss 83MB
+[infotree_export] smaps_rollup:
+  Rss:               85944 kB
+  Pss:               83907 kB
+  Shared_Clean:       2060 kB
+  Shared_Dirty:          0 kB
+  Private_Clean:     63880 kB
+  Private_Dirty:     20004 kB
+  Swap:                  0 kB
+[infotree_export] smaps_top:
+  62144 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  18432 kB  [anon]
+  1716 kB  /home/andrew-peterson/code/lean-experiment/scripts/infotree_exporter/.lake/build/bin/infotree_export
+  1156 kB  [anon]
+  1112 kB  /usr/lib/x86_64-linux-gnu/libc.so.6
+Running as unit: run-rf699914ef6a64be1a1d786116c202358.scope; invocation ID: 9f17f6555a8e464288525d09702dfd43
