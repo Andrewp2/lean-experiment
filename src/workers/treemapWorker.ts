@@ -5,6 +5,14 @@ type TreemapNode = {
   name: string
   path?: string
   series: Record<string, number>
+  kind?: string
+  span?: {
+    file?: string
+    line?: number
+    col?: number
+    end_line?: number
+    end_col?: number
+  }
   children?: TreemapNode[]
   isLeaf?: boolean
 }
@@ -13,6 +21,8 @@ type LayoutNode = {
   name: string
   path?: string
   series: Record<string, number>
+  kind?: string
+  span?: TreemapNode['span']
   isLeaf?: boolean
   x0: number
   y0: number
@@ -24,6 +34,16 @@ type LayoutNode = {
 
 type LayoutPayload = {
   leafNodes: LayoutNode[]
+  groupNodes: {
+    name: string
+    path?: string
+    kind?: string
+    depth: number
+    x0: number
+    y0: number
+    x1: number
+    y1: number
+  }[]
 }
 
 type LayoutRequest = {
@@ -143,6 +163,8 @@ const buildLayout = (payload: LayoutRequest['payload']): LayoutPayload => {
     name: node.data.name,
     path: node.data.path,
     series: node.data.series ?? {},
+    kind: node.data.kind,
+    span: node.data.span,
     isLeaf: node.data.isLeaf,
     x0: node.x0,
     y0: node.y0,
@@ -162,8 +184,23 @@ const buildLayout = (payload: LayoutRequest['payload']): LayoutPayload => {
     parentName: node.parent?.data.name ?? '',
   }))
 
+  const groupNodes = tiledRoot
+    .descendants()
+    .filter((node) => node.children && node.depth > 0)
+    .map((node) => ({
+      name: node.data.name,
+      path: node.data.path,
+      kind: node.data.kind,
+      depth: node.depth,
+      x0: node.x0,
+      y0: node.y0,
+      x1: node.x1,
+      y1: node.y1,
+    }))
+
   return {
     leafNodes: leafLayout,
+    groupNodes,
   }
 }
 

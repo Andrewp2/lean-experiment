@@ -11,6 +11,10 @@ and inspected.
 - Tactic reference: quick lookup table of common Lean tactics and examples.
 - Visualizer scaffold: mock UI for goal-state graphs, tactic timelines, and dependency views.
 
+The treemap accepts both the simple `entries` / `tree` JSON schemas and LeanObserve
+(`metrics.json`) output for richer compiler-derived metrics (JBlow-style metrics,
+module/file borders, and blend weights).
+
 ## Project layout
 
 - `src/App.tsx`: main proof walkthrough UI.
