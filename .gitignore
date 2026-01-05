@@ -26,3 +26,4 @@ infotree_output/
 *.njsproj
 *.sln
 *.sw?
+infotree_export.txt
