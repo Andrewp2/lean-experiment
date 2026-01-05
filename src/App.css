@@ -619,7 +619,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px 12px;
-  color: var(--muted);
+  color: var(--ink);
 }
 
 .treemap-readout-item {
@@ -632,8 +632,8 @@
   gap: 6px;
 }
 
-.treemap-readout-empty {
-  color: var(--muted);
+ .treemap-readout-empty {
+  color: inherit;
 }
 
 .treemap-readout-key {
@@ -732,6 +732,14 @@
 
 .theme-reticle .treemap-readout {
   border-color: #333333;
+}
+
+.theme-reticle .treemap-readout-metrics {
+  color: #f5f5f5;
+}
+
+.theme-reticle .treemap-readout-empty {
+  color: inherit;
 }
 
 .theme-reticle .treemap-select select,

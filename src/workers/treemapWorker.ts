@@ -38,7 +38,6 @@ type LayoutRequest = {
     width: number
     height: number
     colors: string[]
-    colorScale: { low: string; high: string }
   }
 }
 
@@ -67,6 +66,7 @@ const buildLayout = (payload: LayoutRequest['payload']): LayoutPayload => {
     sizeSeries,
     colorSeries,
     colorMode,
+    theme,
     width,
     height,
     colors,
@@ -101,7 +101,7 @@ const buildLayout = (payload: LayoutRequest['payload']): LayoutPayload => {
   )
   const colorMax = maxAbsolute > 0 ? maxAbsolute : 1
   const colorMin = Number.isFinite(minAbsoluteNonZero) ? minAbsoluteNonZero : 0
-  const zeroColor = '#1a0b0b'
+  const zeroColor = theme === 'reticle' ? '#1a0b0b' : '#ffebe0'
   const relativeFill = (value: number, minNonZero: number, max: number) => {
     if (!Number.isFinite(value) || value <= 0 || max <= 0) {
       return zeroColor

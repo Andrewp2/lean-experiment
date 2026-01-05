@@ -24,7 +24,6 @@ type UploadedData = {
   entries?: UploadedEntry[]
 }
 type ColorMode = 'global' | 'per_parent'
-type ColorScale = { low: string; high: string }
 type CompiledRegex = { pattern: string; key: string; regex: RegExp }
 type LayoutNode = {
   name: string
@@ -292,7 +291,6 @@ const useTreemap = (
   colorMode: ColorMode,
   theme: 'highk' | 'reticle',
   colors: string[],
-  colorScale: ColorScale,
   mathlibPath: string,
   openFileTarget: (fullPath: string, link: string) => void,
   warnMissingMathlibPath: () => void,
@@ -358,7 +356,6 @@ const useTreemap = (
         width,
         height: 600,
         colors,
-        colorScale,
       },
     })
   }, [
@@ -369,7 +366,6 @@ const useTreemap = (
     colorMode,
     theme,
     colors,
-    colorScale,
   ])
 
   useEffect(() => {
@@ -456,7 +452,6 @@ const useTreemap = (
     colorMode,
     theme,
     colors,
-    colorScale,
     mathlibPath,
     openFileTarget,
     warnMissingMathlibPath,
@@ -533,11 +528,6 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   const palette = useMemo(() => (
     theme === 'reticle' ? pastelDark : pastel
   ), [pastel, pastelDark, theme])
-  const colorScale = useMemo(() => (
-    theme === 'reticle'
-      ? { low: '#3d7cc8', high: '#c9773a' }
-      : { low: '#2d72c4', high: '#e38c4a' }
-  ), [theme])
 
   const warnMissingMathlibPath = useCallback(async () => {
     const message = 'Set a Mathlib path to open files directly in VS Code.'
@@ -696,7 +686,6 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     colorMode,
     theme,
     palette,
-    colorScale,
     mathlibPath,
     openFileTarget,
     warnMissingMathlibPath,
@@ -1039,7 +1028,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
             </div>
             <div className="panel">
               <p className="treemap-note">
-                Coloring: blue → low, orange → high. Zero values are black in dark mode and white in light mode.
+                Coloring: blue → low, orange → high. Zero values are dark red in dark mode and bright red in light mode.
                 Global mode scales across the visible leaves; per parent normalizes within each parent block.
               </p>
             </div>
