@@ -1232,6 +1232,9 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
           <div className="treemap-canvas" ref={treemapRef} />
         </div>
         <div className="treemap-readout">
+          <span className={`treemap-readout-path${hoveredLeaf ? '' : ' treemap-readout-empty'}`}>
+            {hoveredLeaf ? (hoveredLeaf.path ?? hoveredLeaf.name) : 'Hover a leaf to see metrics'}
+          </span>
           <span className="treemap-readout-metrics">
             {seriesKeys.map((key) => {
               if (key === 'file_count' || key.startsWith('infotree_')) {
