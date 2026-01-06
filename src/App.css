@@ -399,6 +399,56 @@
   flex-wrap: wrap;
 }
 
+.treemap-blend {
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.treemap-blend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.treemap-blend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.treemap-blend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--border-strong);
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.treemap-blend-item input {
+  width: 60px;
+  background: transparent;
+  color: var(--ink);
+  border: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+}
+
+.treemap-blend-item input:focus {
+  outline: none;
+}
+
 .treemap-note {
   margin: 0;
   font-size: 0.75rem;
@@ -589,6 +639,17 @@
 
 .treemap-child {
   cursor: pointer;
+}
+
+.treemap-border {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 2px;
+}
+
+.treemap-border-file {
+  stroke: var(--border);
+  stroke-width: 1px;
 }
 
 @keyframes treemap-spin {

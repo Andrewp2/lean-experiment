@@ -9,6 +9,14 @@ type TreemapNode = {
   name: string
   path?: string
   series: Record<string, number>
+  kind?: string
+  span?: {
+    file?: string
+    line?: number
+    col?: number
+    end_line?: number
+    end_col?: number
+  }
   children?: TreemapNode[]
   isLeaf?: boolean
 }
@@ -23,12 +31,13 @@ type UploadedData = {
   seriesKeys?: string[]
   entries?: UploadedEntry[]
 }
-type ColorMode = 'global' | 'per_parent'
 type CompiledRegex = { pattern: string; key: string; regex: RegExp }
 type LayoutNode = {
   name: string
   path?: string
   series: Record<string, number>
+  kind?: string
+  span?: TreemapNode['span']
   isLeaf?: boolean
   x0: number
   y0: number
@@ -39,10 +48,37 @@ type LayoutNode = {
 }
 type LayoutPayload = {
   leafNodes: LayoutNode[]
+  groupNodes: {
+    name: string
+    path?: string
+    kind?: string
+    depth: number
+    x0: number
+    y0: number
+    x1: number
+    y1: number
+  }[]
 }
 
 type MathlibPageProps = {
   embedded?: boolean
+}
+
+type BorderMode = 'none' | 'modules' | 'modules_files'
+type ColorMode = 'global' | 'per_parent'
+
+type MetricsNode = {
+  name: string
+  path?: string
+  kind?: string
+  metrics?: Record<string, number>
+  span?: TreemapNode['span']
+  children?: MetricsNode[]
+}
+
+type MetricsReport = {
+  schema_version?: string
+  root?: MetricsNode
 }
 
 declare global {
@@ -70,6 +106,19 @@ type BuildNode = {
 const MAX_DEPTH = 5
 const portingNoteRegex = /porting[\s_-]*note/gi
 const adaptationNoteRegex = /#adaptation_note\b/gi
+const jblowMetricKeys = [
+  'if_density_bp',
+  'if_depth_max',
+  'loop_depth_max',
+  'assignments',
+  'global_reads',
+  'global_writes',
+  'heap_allocations',
+  'heap_frees',
+  'call_locality_module_bp',
+  'call_locality_file_bp',
+  'call_constancy_bp',
+]
 
 const makeRegexKey = (pattern: string) => `regex:${pattern}`
 
@@ -226,10 +275,70 @@ const sumSeriesValue = (node: TreemapNode, key: string): number => {
 
 const normalizeNode = (node: TreemapNode): TreemapNode => {
   if (!node.children || node.children.length === 0) {
-    return node
+    return {
+      ...node,
+      kind: node.kind ?? 'file',
+    }
   }
   const normalizedChildren = node.children.map(normalizeNode)
-  return { ...node, children: normalizedChildren }
+  return {
+    ...node,
+    kind: node.kind ?? 'module',
+    children: normalizedChildren,
+  }
+}
+
+const sanitizePath = (path?: string) => (
+  path ? path.replace(/^\.\/+/, '') : path
+)
+
+const collectSeriesKeys = (node: TreemapNode, keys: Set<string>) => {
+  Object.keys(node.series ?? {}).forEach((key) => keys.add(key))
+  node.children?.forEach((child) => collectSeriesKeys(child, keys))
+}
+
+const convertMetricsNode = (node: MetricsNode): TreemapNode => {
+  const children = node.children?.map(convertMetricsNode) ?? []
+  const metrics = node.metrics ?? {}
+  const series: Record<string, number> = {}
+  Object.entries(metrics).forEach(([key, value]) => {
+    if (typeof value === 'number') {
+      series[key] = value
+    }
+  })
+  const kind = node.kind
+  const isLeaf = kind === 'decl' || kind === 'command' || children.length === 0
+  return {
+    name: node.name,
+    path: sanitizePath(node.path),
+    series,
+    kind,
+    span: node.span,
+    children: children.length > 0 ? children : undefined,
+    isLeaf: isLeaf || undefined,
+  }
+}
+
+const convertMetricsReport = (report: MetricsReport): TreemapData | null => {
+  if (!report.root) {
+    return null
+  }
+  const root = normalizeNode(convertMetricsNode(report.root))
+  const seriesKeys = new Set<string>()
+  collectSeriesKeys(root, seriesKeys)
+  return { root, seriesKeys: Array.from(seriesKeys).sort() }
+}
+
+const isMetricsReport = (value: unknown): value is MetricsReport => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+  const root = (value as { root?: unknown }).root
+  if (!root || typeof root !== 'object') {
+    return false
+  }
+  const rootObj = root as { metrics?: unknown; kind?: unknown }
+  return typeof rootObj.metrics === 'object' && typeof rootObj.kind === 'string'
 }
 
 const buildTreemapFromFiles = async (files: FileList, regexPatterns: string[]) => {
@@ -265,11 +374,14 @@ const buildTreemapFromFiles = async (files: FileList, regexPatterns: string[]) =
       notes_total: node.noteTotal,
       ...node.regexCounts,
     }
+    const kind = children.length > 0 ? 'module' : 'file'
     return {
       name: node.name,
       path: node.path,
       children: children.length > 0 ? children : undefined,
       series,
+      kind,
+      isLeaf: children.length > 0 ? undefined : true,
     }
   }
 
@@ -289,10 +401,11 @@ const useTreemap = (
   sizeSeries: string,
   colorSeries: string,
   colorMode: ColorMode,
+  borderMode: BorderMode,
   theme: 'highk' | 'reticle',
   colors: string[],
   mathlibPath: string,
-  openFileTarget: (fullPath: string, link: string) => void,
+  openFileTarget: (fullPath: string, link: string, span?: TreemapNode['span']) => void,
   warnMissingMathlibPath: () => void,
   isTauri: boolean,
   vscodePath: string,
@@ -403,15 +516,24 @@ const useTreemap = (
     const basePath = isTauri ? mathlibPath : vscodePath
     const normalizedBasePath = basePath.trim().replace(/\/+$/, '')
     const buildFileTarget = (node: LayoutNode) => {
-      if (!normalizedBasePath) {
+      const rawPath = (node.span?.file ?? node.path)?.replace(/^\/+/, '')
+      if (!rawPath) {
         return null
       }
-      const nodePath = node.path?.replace(/^\/+/, '')
-      if (!nodePath) {
+      const normalizedPath = rawPath.replace(/^\.\/+/, '')
+      const hasLeanExt = normalizedPath.endsWith('.lean')
+      const relativePath = hasLeanExt ? normalizedPath : `${normalizedPath}.lean`
+      const isAbsolute = /^([A-Za-z]:[\\/]|\/)/.test(relativePath)
+      const fullPath = isAbsolute
+        ? relativePath
+        : (normalizedBasePath ? `${normalizedBasePath}/${relativePath}` : null)
+      if (!fullPath) {
         return null
       }
-      const fullPath = `${normalizedBasePath}/${nodePath}.lean`
-      return { fullPath, link: `vscode://file/${encodeURI(fullPath)}` }
+      const line = node.span?.line
+      const col = node.span?.col
+      const lineSuffix = typeof line === 'number' ? `:${line}:${col ?? 0}` : ''
+      return { fullPath, link: `vscode://file/${encodeURI(fullPath)}${lineSuffix}`, span: node.span }
     }
 
     g
@@ -425,11 +547,13 @@ const useTreemap = (
       .attr('height', (d) => d.y1 - d.y0)
       .attr('class', 'treemap-rect treemap-child')
       .attr('fill', (d) => d.fill)
-      .style('stroke-width', 0)
+      .style('stroke-width', (d) => (
+        borderMode === 'modules_files' && d.kind === 'file' ? 1 : 0
+      ))
       .on('click', (_, d) => {
         const target = buildFileTarget(d)
         if (target) {
-          void openFileTarget(target.fullPath, target.link)
+          void openFileTarget(target.fullPath, target.link, target.span)
         } else {
           void warnMissingMathlibPath()
         }
@@ -441,6 +565,31 @@ const useTreemap = (
         onHoverLeaf(null)
       })
 
+    const wantsModuleBorders = borderMode === 'modules' || borderMode === 'modules_files'
+    const wantsFileBorders = borderMode === 'modules_files'
+    if (wantsModuleBorders || wantsFileBorders) {
+      const borderNodes = layout.groupNodes.filter((node) => {
+        const kind = node.kind ?? 'module'
+        if (kind === 'file') {
+          return wantsFileBorders
+        }
+        return wantsModuleBorders
+      })
+      g
+        .append('g')
+        .attr('class', 'treemap-borders')
+        .selectAll('rect')
+        .data(borderNodes)
+        .enter()
+        .append('rect')
+        .attr('x', (d) => d.x0)
+        .attr('y', (d) => d.y0)
+        .attr('width', (d) => d.x1 - d.x0)
+        .attr('height', (d) => d.y1 - d.y0)
+        .attr('class', (d) => `treemap-border treemap-border-${d.kind ?? 'module'}`)
+        .style('pointer-events', 'none')
+    }
+
     return () => {
       container.innerHTML = ''
     }
@@ -450,6 +599,7 @@ const useTreemap = (
     sizeSeries,
     colorSeries,
     colorMode,
+    borderMode,
     theme,
     colors,
     mathlibPath,
@@ -467,7 +617,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   const treemapRef = useRef<HTMLDivElement>(null)
   const rawData = treemapData as unknown as TreemapData
   const defaultData = useMemo<TreemapNode>(() => (
-    rawData.root ?? (treemapData as unknown as TreemapNode)
+    normalizeNode(rawData.root ?? (treemapData as unknown as TreemapNode))
   ), [rawData])
   const defaultSeriesKeys = useMemo<string[]>(() => (
     rawData.seriesKeys ?? []
@@ -477,6 +627,8 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   const [sizeSeries, setSizeSeries] = useState<string>('loc')
   const [colorSeries, setColorSeries] = useState<string>('porting_notes')
   const [colorMode, setColorMode] = useState<ColorMode>('global')
+  const [borderMode, setBorderMode] = useState<BorderMode>('none')
+  const [blendWeights, setBlendWeights] = useState<Record<string, number>>({})
   const [hoveredLeaf, setHoveredLeaf] = useState<LayoutNode | null>(null)
   const [regexInput, setRegexInput] = useState<string>('')
   const [regexError, setRegexError] = useState<string>('')
@@ -528,6 +680,62 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   const palette = useMemo(() => (
     theme === 'reticle' ? pastelDark : pastel
   ), [pastel, pastelDark, theme])
+  const blendKeys = useMemo(() => (
+    jblowMetricKeys.filter((key) => seriesKeys.includes(key))
+  ), [seriesKeys])
+  const blendActive = useMemo(() => (
+    Object.values(blendWeights).some((value) => value !== 0)
+  ), [blendWeights])
+
+  useEffect(() => {
+    if (blendKeys.length === 0) {
+      setBlendWeights({})
+      return
+    }
+    setBlendWeights((current) => {
+      const next: Record<string, number> = {}
+      blendKeys.forEach((key) => {
+        next[key] = current[key] ?? 0
+      })
+      return next
+    })
+  }, [blendKeys])
+
+  const blendedData = useMemo(() => {
+    if (!blendActive) {
+      return data
+    }
+    const applyBlend = (node: TreemapNode): TreemapNode => {
+      const children = node.children?.map(applyBlend)
+      const series = { ...node.series }
+      let blendValue = 0
+      Object.entries(blendWeights).forEach(([key, weight]) => {
+        if (weight === 0) {
+          return
+        }
+        const value = series[key]
+        if (typeof value === 'number') {
+          blendValue += value * weight
+        }
+      })
+      series.blend = blendValue
+      return {
+        ...node,
+        series,
+        children,
+      }
+    }
+    return applyBlend(data)
+  }, [blendActive, blendWeights, data])
+
+  const activeSeriesKeys = useMemo(() => {
+    if (!blendActive) {
+      return seriesKeys
+    }
+    return seriesKeys.includes('blend')
+      ? seriesKeys
+      : ['blend', ...seriesKeys]
+  }, [blendActive, seriesKeys])
 
   const warnMissingMathlibPath = useCallback(async () => {
     const message = 'Set a Mathlib path to open files directly in VS Code.'
@@ -560,9 +768,14 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     window.location.href = link
   }, [isTauri])
 
-  const openFileTarget = useCallback((fullPath: string, link: string) => {
+  const openFileTarget = useCallback((fullPath: string, link: string, span?: TreemapNode['span']) => {
     if (isVscode) {
-      vscodeApi?.postMessage({ type: 'openFile', path: fullPath })
+      vscodeApi?.postMessage({
+        type: 'openFile',
+        path: fullPath,
+        line: span?.line,
+        col: span?.col,
+      })
       return
     }
     void openVscodeLink(link)
@@ -680,10 +893,11 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
 
   useTreemap(
     treemapRef,
-    data,
+    blendedData,
     sizeSeries,
     colorSeries,
     colorMode,
+    borderMode,
     theme,
     palette,
     mathlibPath,
@@ -695,36 +909,36 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   )
 
   useEffect(() => {
-    if (seriesKeys.length > 0) {
+    if (activeSeriesKeys.length > 0) {
       setSizeSeries((current) => {
-        if (seriesKeys.includes(current)) {
+        if (activeSeriesKeys.includes(current)) {
           return current
         }
-        if (seriesKeys.includes('infotree_nodes_total')) {
+        if (activeSeriesKeys.includes('infotree_nodes_total')) {
           return 'infotree_nodes_total'
         }
-        if (seriesKeys.includes('loc')) {
+        if (activeSeriesKeys.includes('loc')) {
           return 'loc'
         }
-        return seriesKeys[0]
+        return activeSeriesKeys[0]
       })
       setColorSeries((current) => {
-        if (seriesKeys.includes(current)) {
+        if (activeSeriesKeys.includes(current)) {
           return current
         }
-        if (seriesKeys.includes('infotree_tactic_state_items')) {
+        if (activeSeriesKeys.includes('infotree_tactic_state_items')) {
           return 'infotree_tactic_state_items'
         }
-        if (seriesKeys.includes('infotree_diagnostic_items')) {
+        if (activeSeriesKeys.includes('infotree_diagnostic_items')) {
           return 'infotree_diagnostic_items'
         }
-        if (seriesKeys.includes('porting_notes')) {
+        if (activeSeriesKeys.includes('porting_notes')) {
           return 'porting_notes'
         }
-        return seriesKeys[0]
+        return activeSeriesKeys[0]
       })
     }
-  }, [seriesKeys])
+  }, [activeSeriesKeys])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -853,7 +1067,13 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
 
   const buildTreeFromEntries = (entries: UploadedEntry[]): TreemapNode => {
     const rootName = entries[0]?.path.split('/').filter(Boolean)[0] ?? 'Root'
-    const rootNode: TreemapNode = { name: rootName, path: rootName, series: {}, children: [] }
+    const rootNode: TreemapNode = {
+      name: rootName,
+      path: rootName,
+      series: {},
+      children: [],
+      kind: 'module',
+    }
     const index = new Map<string, TreemapNode>()
     index.set('', rootNode)
     for (const entry of entries) {
@@ -864,7 +1084,15 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
         currentPath = currentPath ? `${currentPath}/${part}` : part
         let child = index.get(currentPath)
         if (!child) {
-          child = { name: part, path: currentPath, series: {}, children: [] }
+          const isLeaf = idx === parts.length - 1
+          child = {
+            name: part,
+            path: currentPath,
+            series: {},
+            children: [],
+            kind: isLeaf ? 'file' : 'module',
+            isLeaf: isLeaf || undefined,
+          }
           current.children = current.children ?? []
           current.children.push(child)
           index.set(currentPath, child)
@@ -882,14 +1110,29 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     return rootNode
   }
 
-  const applyUploadedData = useCallback((parsed: UploadedData) => {
+  const applyUploadedData = useCallback((parsed: UploadedData | MetricsReport) => {
+    if (isMetricsReport(parsed)) {
+      const converted = convertMetricsReport(parsed)
+      if (converted) {
+        setData(converted.root)
+        setSeriesKeys(converted.seriesKeys)
+      }
+      return
+    }
     if (parsed.root) {
-      setData(parsed.root)
-      setSeriesKeys(parsed.seriesKeys ?? Object.keys(parsed.root.series ?? {}))
+      const normalized = normalizeNode(parsed.root)
+      setData(normalized)
+      if (parsed.seriesKeys) {
+        setSeriesKeys(parsed.seriesKeys)
+      } else {
+        const keys = new Set<string>()
+        collectSeriesKeys(normalized, keys)
+        setSeriesKeys(Array.from(keys))
+      }
       return
     }
     if (parsed.entries) {
-      const built = buildTreeFromEntries(parsed.entries)
+      const built = normalizeNode(buildTreeFromEntries(parsed.entries))
       setData(built)
       const keys = new Set<string>()
       parsed.entries.forEach((entry) => {
@@ -908,7 +1151,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     const reader = new FileReader()
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(String(reader.result ?? '{}')) as UploadedData
+        const parsed = JSON.parse(String(reader.result ?? '{}')) as UploadedData | MetricsReport
         applyUploadedData(parsed)
       } catch (error) {
         console.error('Failed to load JSON', error)
@@ -937,7 +1180,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
         const text = message.text
         window.setTimeout(() => {
           try {
-            const parsed = JSON.parse(text) as UploadedData
+            const parsed = JSON.parse(text) as UploadedData | MetricsReport
             applyUploadedData(parsed)
             finishRebuild('vscode-load')
           } catch (error) {
@@ -979,6 +1222,8 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
           ? 'porting_notes'
           : (defaultSeriesKeys[0] ?? 'porting_notes'))))
     setColorMode('global')
+    setBorderMode('none')
+    setBlendWeights({})
   }
 
   const formatMetricValue = (key: string, value: number | undefined) => {
@@ -988,6 +1233,12 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     if (key === 'comment_ratio') {
       return value.toFixed(6)
     }
+    if (key.endsWith('_bp')) {
+      return (value / 10000).toFixed(4)
+    }
+    if (key === 'blend') {
+      return value.toFixed(3)
+    }
     return value
   }
 
@@ -995,6 +1246,8 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     switch (key) {
       case 'comment_ratio':
         return '10ch'
+      case 'blend':
+        return '9ch'
       case 'code_lines':
         return '6ch'
       case 'loc':
@@ -1002,6 +1255,9 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
       case 'bytes':
         return '7ch'
       default:
+        if (key.endsWith('_bp')) {
+          return '7ch'
+        }
         return '4ch'
     }
   }
@@ -1131,7 +1387,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
                 value={sizeSeries}
                 onChange={(event) => setSizeSeries(event.target.value)}
               >
-                {seriesKeys.map((key) => (
+                {activeSeriesKeys.map((key) => (
                   <option key={key} value={key}>
                     {key.replace(/_/g, ' ')}
                   </option>
@@ -1144,7 +1400,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
                 value={colorSeries}
                 onChange={(event) => setColorSeries(event.target.value)}
               >
-                {seriesKeys.map((key) => (
+                {activeSeriesKeys.map((key) => (
                   <option key={key} value={key}>
                     {key.replace(/_/g, ' ')}
                   </option>
@@ -1159,6 +1415,17 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
               >
                 <option value="global">global</option>
                 <option value="per_parent">per parent</option>
+              </select>
+            </label>
+            <label className="treemap-select">
+              <span>BORDERS</span>
+              <select
+                value={borderMode}
+                onChange={(event) => setBorderMode(event.target.value as BorderMode)}
+              >
+                <option value="none">none</option>
+                <option value="modules">modules</option>
+                <option value="modules_files">modules + files</option>
               </select>
             </label>
             {!embedded && (isVscode || isTauri) ? (
@@ -1190,6 +1457,47 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
             ) : null}
           </>
         </div>
+        {blendKeys.length > 0 ? (
+          <div className="treemap-blend">
+            <div className="treemap-blend-header">
+              <span>BLEND WEIGHTS</span>
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => {
+                  setBlendWeights(() => {
+                    const next: Record<string, number> = {}
+                    blendKeys.forEach((key) => {
+                      next[key] = 0
+                    })
+                    return next
+                  })
+                }}
+              >
+                RESET
+              </button>
+            </div>
+            <div className="treemap-blend-grid">
+              {blendKeys.map((key) => (
+                <label key={key} className="treemap-blend-item">
+                  <span>{key.replace(/_/g, ' ')}</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={blendWeights[key] ?? 0}
+                    onChange={(event) => {
+                      const nextValue = Number(event.target.value)
+                      setBlendWeights((current) => ({
+                        ...current,
+                        [key]: Number.isFinite(nextValue) ? nextValue : 0,
+                      }))
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {!embedded && (isVscode || isTauri) ? (
           <>
             {regexError ? <div className="treemap-regex-error">{regexError}</div> : null}
@@ -1225,7 +1533,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
             {hoveredLeaf ? (hoveredLeaf.path ?? hoveredLeaf.name) : 'Hover a leaf to see metrics'}
           </span>
           <span className="treemap-readout-metrics">
-            {seriesKeys.map((key) => {
+            {activeSeriesKeys.map((key) => {
               if (key === 'file_count' || key.startsWith('infotree_')) {
                 return null
               }
