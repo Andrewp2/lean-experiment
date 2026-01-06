@@ -633,6 +633,8 @@
 .treemap-rect {
   stroke: var(--border-strong);
   stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  shape-rendering: crispEdges;
   pointer-events: fill;
   cursor: pointer;
 }
@@ -645,11 +647,15 @@
   fill: none;
   stroke: var(--border-strong);
   stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+  shape-rendering: crispEdges;
 }
 
 .treemap-border-file {
   stroke: var(--border);
   stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  shape-rendering: crispEdges;
 }
 
 @keyframes treemap-spin {

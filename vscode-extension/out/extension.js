@@ -42,7 +42,6 @@ const promises_1 = require("node:fs/promises");
 const node_path_1 = __importDefault(require("node:path"));
 const WEBVIEW_DIST = 'media';
 const WEBVIEW_ENTRY = 'mathlib-vscode.html';
-const MAX_DEPTH = 5;
 const MIN_PERCENT = 0.01;
 const GROUP_BY = 'loc';
 const portingNoteRegex = /porting[\s_-]*note/gi;
@@ -132,7 +131,7 @@ const addBuildFile = (root, relativePath, size, metrics) => {
     }
     const baseName = fileName.replace(/\.lean$/, '');
     const segments = [...parts, baseName].filter(Boolean);
-    const depth = Math.min(segments.length, MAX_DEPTH);
+    const depth = segments.length;
     let node = root;
     node.size += size;
     node.count += 1;
@@ -381,7 +380,14 @@ const openTreemapPanel = async (context) => {
             try {
                 const uri = vscode.Uri.file(message.path);
                 const doc = await vscode.workspace.openTextDocument(uri);
-                await vscode.window.showTextDocument(doc, { preview: true });
+                const editor = await vscode.window.showTextDocument(doc, { preview: true });
+                const line = typeof message.line === 'number' ? message.line : null;
+                const col = typeof message.col === 'number' ? message.col : 0;
+                if (line !== null) {
+                    const position = new vscode.Position(Math.max(0, line - 1), Math.max(0, col));
+                    editor.selection = new vscode.Selection(position, position);
+                    editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+                }
             }
             catch (error) {
                 void vscode.window.showErrorMessage('Unable to open file in VS Code.');

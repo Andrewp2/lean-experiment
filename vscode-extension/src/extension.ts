@@ -33,7 +33,6 @@ type BuildNode = {
 
 const WEBVIEW_DIST = 'media'
 const WEBVIEW_ENTRY = 'mathlib-vscode.html'
-const MAX_DEPTH = 5
 const MIN_PERCENT = 0.01
 const GROUP_BY = 'loc'
 const portingNoteRegex = /porting[\s_-]*note/gi
@@ -132,7 +131,7 @@ const addBuildFile = (
   }
   const baseName = fileName.replace(/\.lean$/, '')
   const segments = [...parts, baseName].filter(Boolean)
-  const depth = Math.min(segments.length, MAX_DEPTH)
+  const depth = segments.length
 
   let node = root
   node.size += size

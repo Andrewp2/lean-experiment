@@ -96,11 +96,12 @@ const buildLayout = (payload: LayoutRequest['payload']): LayoutPayload => {
   const root = hierarchy<TreemapNode>(prunedData)
     .sum((d) => (isLeafNode(d) ? valueForSeries(d, sizeSeries) : 0))
     .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
+
   const tiledRoot = treemap<TreemapNode>()
     .size([width, height])
-    .paddingOuter(1)
-    .paddingInner(1)
-    .paddingTop(1)(root)
+    .paddingOuter((node) => (node.depth === 0 ? 0 : 1))
+    .paddingInner((node) => (node.depth === 0 ? 0 : 1))
+    .paddingTop((node) => (node.depth === 0 ? 0 : 1))(root)
 
   const leafNodes = tiledRoot.descendants().filter((d) => !d.children || d.children.length === 0)
 

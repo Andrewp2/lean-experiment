@@ -413,6 +413,7 @@ const useTreemap = (
   const workerRef = useRef<Worker | null>(null)
   const requestIdRef = useRef(0)
   const [layout, setLayout] = useState<LayoutPayload | null>(null)
+  const renderScale = 8
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -465,8 +466,8 @@ const useTreemap = (
         colorSeries,
         colorMode,
         theme,
-        width,
-        height: 600,
+        width: width * renderScale,
+        height: 600 * renderScale,
         colors,
       },
     })
@@ -488,6 +489,8 @@ const useTreemap = (
 
     const width = container.clientWidth
     const height = 600
+    const scaledWidth = width * renderScale
+    const scaledHeight = height * renderScale
 
     container.innerHTML = ''
     const svg = d3
@@ -496,11 +499,12 @@ const useTreemap = (
       .attr('class', 'treemap-svg')
       .attr('width', width)
       .attr('height', height)
+      .attr('viewBox', `0 0 ${scaledWidth} ${scaledHeight}`)
 
     const g = svg.append('g').attr('class', 'treemap-zoom')
     const zoomBehavior = d3
       .zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.6, 10])
+      .scaleExtent([0.6, 1000])
       .on('zoom', (event) => {
         g.attr('transform', event.transform.toString())
       })
