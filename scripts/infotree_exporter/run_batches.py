@@ -31,6 +31,18 @@ def run_and_tee(cmd, cwd, log_file):
             log_handle.close()
 
 
+def iter_mathlib_files(mathlib_dir):
+    collected = []
+    for root_dir, dirs, files in os.walk(mathlib_dir):
+        dirs.sort()
+        files.sort()
+        for name in files:
+            if name.endswith(".lean"):
+                collected.append(os.path.join(root_dir, name))
+    collected.sort()
+    return collected
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True)
@@ -47,6 +59,7 @@ def main():
     parser.add_argument("--full-infotree", action="store_true")
     parser.add_argument("--gzip", action="store_true")
     parser.add_argument("--skip-on-error", action="store_true")
+    parser.add_argument("--max-infotree-nodes", type=int)
     parser.add_argument("--log-file")
     parser.add_argument("--memory-max", default="16G")
     parser.add_argument("--no-systemd", action="store_true")
@@ -75,11 +88,7 @@ def main():
         mathlib_dir = os.path.join(args.root, "Mathlib")
         if not os.path.isdir(mathlib_dir):
             raise SystemExit(f"Expected Mathlib directory at {mathlib_dir}")
-        total_files = 0
-        for root_dir, _dirs, files in os.walk(mathlib_dir):
-            for name in files:
-                if name.endswith(".lean"):
-                    total_files += 1
+        total_files = len(iter_mathlib_files(mathlib_dir))
         remaining = total_files - args.start
         if remaining <= 0:
             raise SystemExit("--start is out of range for Mathlib files")
@@ -88,11 +97,7 @@ def main():
         mathlib_dir = os.path.join(args.root, "Mathlib")
         if not os.path.isdir(mathlib_dir):
             raise SystemExit(f"Expected Mathlib directory at {mathlib_dir}")
-        mathlib_files = []
-        for root_dir, _dirs, files in os.walk(mathlib_dir):
-            for name in files:
-                if name.endswith(".lean"):
-                    mathlib_files.append(os.path.join(root_dir, name))
+        mathlib_files = iter_mathlib_files(mathlib_dir)
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     end = args.start + args.total
@@ -165,6 +170,8 @@ def main():
             cmd.append("--full-infotree")
         if args.gzip:
             cmd.append("--gzip")
+        if args.max_infotree_nodes is not None:
+            cmd += ["--max-infotree-nodes", str(args.max_infotree_nodes)]
         if args.skip_on_error:
             cmd.append("--skip-on-error")
         log(f"[infotree_export] batch start {batch_start}..{batch_start + limit}")

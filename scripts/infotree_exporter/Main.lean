@@ -8,6 +8,7 @@ import Lean.Util.Path
 open Lean
 open Lean.Elab
 open Lean.Language
+open Lean.Language.Lean
 
 structure InfoTreeCounts where
   treesTotal : Nat := 0
@@ -465,6 +466,37 @@ partial def infoTreeToJson (tree : InfoTree) : Json :=
         ("children", jsonArray <| children.toArray.map infoTreeToJson)
       ]
 
+partial def writeInfoTreeJsonLimited (handle : IO.FS.Handle) (tree : InfoTree)
+    (countRef : IO.Ref Nat) (truncatedRef : IO.Ref Bool) (maxNodes? : Option Nat) : IO Unit := do
+  if let some maxNodes := maxNodes? then
+    let count ← countRef.get
+    if count >= maxNodes then
+      truncatedRef.set true
+      handle.putStr "{\"kind\":\"truncated\"}"
+      return ()
+    countRef.set (count + 1)
+  match tree with
+  | .context ctx child =>
+      handle.putStr "{\"kind\":\"context\",\"context\":"
+      handle.putStr (Json.compress (partialContextToJson ctx))
+      handle.putStr ",\"child\":"
+      writeInfoTreeJsonLimited handle child countRef truncatedRef maxNodes?
+      handle.putStr "}"
+  | .hole mvarId =>
+      handle.putStr "{\"kind\":\"hole\",\"mvarId\":"
+      handle.putStr (Json.compress (toJson mvarId.name.toString))
+      handle.putStr "}"
+  | .node info children =>
+      handle.putStr "{\"kind\":\"node\",\"info\":"
+      handle.putStr (Json.compress (infoToJson info))
+      handle.putStr ",\"children\":["
+      let arr := children.toArray
+      for i in [:arr.size] do
+        if i > 0 then
+          handle.putStr ","
+        writeInfoTreeJsonLimited handle (arr[i]!) countRef truncatedRef maxNodes?
+      handle.putStr "]}"
+
 structure Config where
   rootDir : System.FilePath := "."
   outDir : System.FilePath := "infotree_out"
@@ -474,6 +506,7 @@ structure Config where
   errorLimit : Nat := 3
   maxSeconds : Option Nat := none
   maxRssMb : Option Nat := none
+  maxInfotreeNodes : Option Nat := none
   singleFile : Option System.FilePath := none
   rssLogMb : Option Nat := none
   memDebug : Bool := false
@@ -513,6 +546,10 @@ def parseArgs (args : List String) : IO Config := do
         match value.toNat? with
         | some n => go { cfg with maxRssMb := some n } rest
         | none => throw <| IO.userError s!"Invalid --max-rss-mb value: {value}"
+    | "--max-infotree-nodes" :: value :: rest =>
+        match value.toNat? with
+        | some n => go { cfg with maxInfotreeNodes := some n } rest
+        | none => throw <| IO.userError s!"Invalid --max-infotree-nodes value: {value}"
     | "--full-infotree" :: rest =>
         go { cfg with fullInfotree := true } rest
     | "--gzip" :: rest =>
@@ -550,7 +587,8 @@ def getLeanFiles (root : System.FilePath) : IO (Array System.FilePath) := do
   if !(← mathlibDir.isDir) then
     throw <| IO.userError s!"Expected Mathlib directory at {mathlibDir}"
   let files ← mathlibDir.walkDir
-  return files.filter (·.extension == some "lean")
+  let leanFiles := files.filter (·.extension == some "lean")
+  return leanFiles.qsort (fun a b => a.toString < b.toString)
 
 def getLakePackagePaths (root : System.FilePath) : IO (Array System.FilePath) := do
   let pkgsDir := root / ".lake" / "packages"
@@ -818,11 +856,11 @@ unsafe def getSetupCache (doc : Lean.Server.DocumentMeta) (stx : Elab.HeaderSynt
   return cache
 
 unsafe def runFrontendForTrees (doc : Lean.Server.DocumentMeta) (verbose : Bool) (errorLimit : Nat)
-    (memDebug : Bool) (fullInfotree : Bool) :
-    IO (InfoTreeCounts × Nat × Array Message × Option (Array InfoTree)) := do
+    (memDebug : Bool) (emitTree? : Option (InfoTree → IO Unit)) :
+    IO (InfoTreeCounts × Nat × Array Message) := do
   let _ := verbose
   let inputCtx := doc.mkInputContext
-  let cmdlineOpts := Lean.internal.cmdlineSnapshots.setIfNotSet {} true
+  let cmdlineOpts := ({} : Options)
   let cmdlineOpts := cmdlineOpts.setBool `pp.unicode.fun true
   let cmdlineOpts := cmdlineOpts.setBool `autoImplicit false
   let cmdlineOpts := cmdlineOpts.setBool `experimental.module true
@@ -851,38 +889,50 @@ unsafe def runFrontendForTrees (doc : Lean.Server.DocumentMeta) (verbose : Bool)
   let snap ← Lean.Language.Lean.process setupFn none ctx
   if memDebug then
     logMemDebug "after_process"
-  let snaps := Language.toSnapshotTree snap
-  if memDebug then
-    logMemDebug "after_to_snapshot_tree"
-  let _ ← snaps.runAndReport cmdlineOpts false {}
-  if memDebug then
-    logMemDebug "after_runAndReport"
-  let (counts, errorCount, errorMessages, trees) ←
-    snaps.foldM (init := ({}, 0, #[], if fullInfotree then some #[] else none))
-      fun (counts, errorCount, errorMessages, trees) snapshot => do
-      let mut counts := counts
-      let mut errorCount := errorCount
-      let mut errorMessages := errorMessages
-      let mut trees := trees
-      for msg in snapshot.diagnostics.msgLog.toArray do
-        if msg.severity == MessageSeverity.error then
-          errorCount := errorCount + 1
-          if errorMessages.size < errorLimit then
-            errorMessages := errorMessages.push msg
-      match snapshot.infoTree? with
-      | some tree =>
-          counts := countTree tree counts
-          match trees with
-          | some acc => trees := some (acc.push tree)
+  let countsRef ← IO.mkRef ({} : InfoTreeCounts)
+  let errorCountRef ← IO.mkRef 0
+  let errorMessagesRef ← IO.mkRef (#[] : Array Message)
+  let processDiagnostics : Snapshot.Diagnostics → IO Unit := fun diagnostics => do
+    for msg in diagnostics.msgLog.toArray do
+      if msg.severity == MessageSeverity.error then
+        errorCountRef.modify (· + 1)
+        let errors ← errorMessagesRef.get
+        if errors.size < errorLimit then
+          errorMessagesRef.set (errors.push msg)
+  let processInfoTree : Option InfoTree → IO Unit := fun tree? => do
+    match tree? with
+    | some tree =>
+        let counts ← countsRef.get
+        countsRef.set (countTree tree counts)
+        if let some emitTree := emitTree? then
+          emitTree tree
+    | none => pure ()
+
+  match snap.result? with
+  | none => pure ()
+  | some headerParsed =>
+      let headerProcessed := headerParsed.processedSnap.task.get
+      let headerMeta := headerProcessed.metaSnap.task.get
+      processDiagnostics headerMeta.diagnostics
+      processInfoTree headerMeta.infoTree?
+      if let some headerState := headerProcessed.result? then
+        let rec loop (next? : Option (SnapshotTask CommandParsedSnapshot)) : IO Unit := do
+          match next? with
+          | some next =>
+              let cmdParsed := next.task.get
+              processDiagnostics cmdParsed.diagnostics
+              let infoSnap : SnapshotLeaf := cmdParsed.elabSnap.infoTreeSnap.task.get
+              processDiagnostics infoSnap.diagnostics
+              processInfoTree infoSnap.infoTree?
+              loop cmdParsed.nextCmdSnap?
           | none => pure ()
-      | none => pure ()
-      return (counts, errorCount, errorMessages, trees)
+        loop (some headerState.firstCmdSnap)
   if memDebug then
-    logMemDebug "after_fold"
-  Runtime.forget snaps
-  if memDebug then
-    logMemDebug "after_forget"
-  return (counts, errorCount, errorMessages, trees)
+    logMemDebug "after_command_loop"
+  let counts ← countsRef.get
+  let errorCount ← errorCountRef.get
+  let errorMessages ← errorMessagesRef.get
+  return (counts, errorCount, errorMessages)
 
 def outputJsonPaths (cfg : Config) (relativePath : System.FilePath) :
     System.FilePath × System.FilePath := Id.run do
@@ -901,6 +951,7 @@ unsafe def exportFile (cfg : Config) (file : System.FilePath) (index : Nat) (tot
       return ()
   if cfg.verbose then
     IO.println s!"[{index + 1}/{total}] {relativePath}"
+  IO.println s!"[infotree_export] start {relativePath}"
   let input ← IO.FS.readFile file
   let moduleName := moduleNameFromPath (dropExtension relativePath)
   let doc : Lean.Server.DocumentMeta := {
@@ -910,8 +961,47 @@ unsafe def exportFile (cfg : Config) (file : System.FilePath) (index : Nat) (tot
     text := input.toFileMap
     dependencyBuildMode := .never
   }
-  let (counts, errorCount, errors, trees?) ←
-    runFrontendForTrees doc cfg.verbose cfg.errorLimit cfg.memDebug cfg.fullInfotree
+  let outputDir := finalPath.parent.getD cfg.outDir
+  IO.FS.createDirAll outputDir
+  let resultAndWrote ←
+    if cfg.fullInfotree then
+      IO.FS.withFile jsonPath .write fun handle => do
+        handle.putStr "{\"infotrees\":["
+        let firstRef ← IO.mkRef true
+        let countRef ← IO.mkRef 0
+        let truncatedRef ← IO.mkRef false
+        let emitTree := fun tree => do
+          let truncated ← truncatedRef.get
+          if truncated then
+            return ()
+          let first ← firstRef.get
+          if first then
+            firstRef.set false
+          else
+            handle.putStr ","
+          writeInfoTreeJsonLimited handle tree countRef truncatedRef cfg.maxInfotreeNodes
+        let result ←
+          runFrontendForTrees doc cfg.verbose cfg.errorLimit cfg.memDebug (some emitTree)
+        let truncated ← truncatedRef.get
+        let count ← countRef.get
+        handle.putStr "]"
+        handle.putStr ",\"truncated\":"
+        handle.putStr (Json.compress (toJson truncated))
+        handle.putStr ",\"truncated_at\":"
+        handle.putStr (toString count)
+        handle.putStr "}"
+        handle.flush
+        pure (result, true)
+    else
+      do
+        let result ←
+          runFrontendForTrees doc cfg.verbose cfg.errorLimit cfg.memDebug none
+        let payload := Json.mkObj [("metrics", result.1.toMetricsJson)]
+        IO.FS.writeFile jsonPath (Json.compress payload)
+        pure (result, true)
+  let (result, wroteOutput) := resultAndWrote
+  let (_counts, errorCount, errors) := result
+
   if errorCount > 0 then
     IO.eprintln s!"[infotree_export] errors while processing {relativePath}"
     for msg in errors do
@@ -919,18 +1009,10 @@ unsafe def exportFile (cfg : Config) (file : System.FilePath) (index : Nat) (tot
       IO.eprintln msg
     if cfg.skipOnError then
       IO.eprintln s!"[infotree_export] skipping output for {relativePath}"
+      if wroteOutput then
+        IO.FS.removeFile jsonPath
       return ()
-  let outputDir := finalPath.parent.getD cfg.outDir
-  IO.FS.createDirAll outputDir
-  let payload :=
-    if cfg.fullInfotree then
-      let trees := trees?.getD #[]
-      Json.mkObj [
-        ("infotrees", jsonArray <| trees.map infoTreeToJson)
-      ]
-    else
-      Json.mkObj [("metrics", counts.toMetricsJson)]
-  IO.FS.writeFile jsonPath (Json.compress payload)
+
   if cfg.gzip then
     let child ← IO.Process.spawn {
       cmd := "gzip"
