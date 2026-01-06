@@ -67,18 +67,18 @@ type MathlibPageProps = {
 type BorderMode = 'none' | 'modules' | 'modules_files'
 type ColorMode = 'global' | 'per_parent'
 
-type LeanObserveNode = {
+type MetricsNode = {
   name: string
   path?: string
   kind?: string
   metrics?: Record<string, number>
   span?: TreemapNode['span']
-  children?: LeanObserveNode[]
+  children?: MetricsNode[]
 }
 
-type LeanObserveReport = {
+type MetricsReport = {
   schema_version?: string
-  root?: LeanObserveNode
+  root?: MetricsNode
 }
 
 declare global {
@@ -297,8 +297,8 @@ const collectSeriesKeys = (node: TreemapNode, keys: Set<string>) => {
   node.children?.forEach((child) => collectSeriesKeys(child, keys))
 }
 
-const convertLeanObserveNode = (node: LeanObserveNode): TreemapNode => {
-  const children = node.children?.map(convertLeanObserveNode) ?? []
+const convertMetricsNode = (node: MetricsNode): TreemapNode => {
+  const children = node.children?.map(convertMetricsNode) ?? []
   const metrics = node.metrics ?? {}
   const series: Record<string, number> = {}
   Object.entries(metrics).forEach(([key, value]) => {
@@ -319,17 +319,17 @@ const convertLeanObserveNode = (node: LeanObserveNode): TreemapNode => {
   }
 }
 
-const convertLeanObserve = (report: LeanObserveReport): TreemapData | null => {
+const convertMetricsReport = (report: MetricsReport): TreemapData | null => {
   if (!report.root) {
     return null
   }
-  const root = normalizeNode(convertLeanObserveNode(report.root))
+  const root = normalizeNode(convertMetricsNode(report.root))
   const seriesKeys = new Set<string>()
   collectSeriesKeys(root, seriesKeys)
   return { root, seriesKeys: Array.from(seriesKeys).sort() }
 }
 
-const isLeanObserveReport = (value: unknown): value is LeanObserveReport => {
+const isMetricsReport = (value: unknown): value is MetricsReport => {
   if (!value || typeof value !== 'object') {
     return false
   }
@@ -1110,9 +1110,9 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     return rootNode
   }
 
-  const applyUploadedData = useCallback((parsed: UploadedData | LeanObserveReport) => {
-    if (isLeanObserveReport(parsed)) {
-      const converted = convertLeanObserve(parsed)
+  const applyUploadedData = useCallback((parsed: UploadedData | MetricsReport) => {
+    if (isMetricsReport(parsed)) {
+      const converted = convertMetricsReport(parsed)
       if (converted) {
         setData(converted.root)
         setSeriesKeys(converted.seriesKeys)
@@ -1151,7 +1151,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     const reader = new FileReader()
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(String(reader.result ?? '{}')) as UploadedData | LeanObserveReport
+        const parsed = JSON.parse(String(reader.result ?? '{}')) as UploadedData | MetricsReport
         applyUploadedData(parsed)
       } catch (error) {
         console.error('Failed to load JSON', error)
@@ -1180,7 +1180,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
         const text = message.text
         window.setTimeout(() => {
           try {
-            const parsed = JSON.parse(text) as UploadedData | LeanObserveReport
+            const parsed = JSON.parse(text) as UploadedData | MetricsReport
             applyUploadedData(parsed)
             finishRebuild('vscode-load')
           } catch (error) {
