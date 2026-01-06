@@ -103,7 +103,6 @@ type BuildNode = {
   regexCounts: Record<string, number>
 }
 
-const MAX_DEPTH = 5
 const portingNoteRegex = /porting[\s_-]*note/gi
 const adaptationNoteRegex = /#adaptation_note\b/gi
 const jblowMetricKeys = [
@@ -215,7 +214,7 @@ const addBuildFile = (
   }
   const baseName = fileName.replace(/\.lean$/, '')
   const segments = [...parts, baseName].filter(Boolean)
-  const depth = Math.min(segments.length, MAX_DEPTH)
+  const depth = segments.length
 
   let node = root
   node.size += size
@@ -637,16 +636,17 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   const rebuildStartRef = useRef<number | null>(null)
   const regexCountRef = useRef<number>(0)
   const mathlibFolderRef = useRef<HTMLInputElement>(null)
-  const [mathlibPath, setMathlibPath] = useState<string>('')
-  const [vscodePath, setVscodePath] = useState<string>('')
-  const vscodeApi = typeof window !== 'undefined'
-    ? (window.__vscodeApi ?? (window.acquireVsCodeApi ? (window.__vscodeApi = window.acquireVsCodeApi()) : null))
-    : null
-  const isVscode = !!vscodeApi
   const isTauri = typeof window !== 'undefined' && (
     !!(window as { __TAURI__?: unknown }).__TAURI__ ||
     !!(window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
   )
+  const [mathlibPath, setMathlibPath] = useState<string>('')
+  const [vscodePath, setVscodePath] = useState<string>('')
+  const [mathlibPathLoaded, setMathlibPathLoaded] = useState<boolean>(!isTauri)
+  const vscodeApi = typeof window !== 'undefined'
+    ? (window.__vscodeApi ?? (window.acquireVsCodeApi ? (window.__vscodeApi = window.acquireVsCodeApi()) : null))
+    : null
+  const isVscode = !!vscodeApi
   const showPrimaryControls = !embedded || !isTauri
   const showHeader = !embedded || (!isTauri && !isVscode)
   const pastel = useMemo(() => ([
@@ -945,7 +945,28 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
       return
     }
     if (isTauri) {
-      setMathlibPath(window.localStorage.getItem('mathlibPath') ?? '')
+      let active = true
+      const loadPath = async () => {
+        try {
+          const core = await import(/* @vite-ignore */ '@tauri-apps/api/core')
+          const stored = await core.invoke<string | null>('load_mathlib_path')
+          if (active && stored) {
+            setMathlibPath(stored)
+            setMathlibPathLoaded(true)
+            return
+          }
+        } catch (error) {
+          console.warn('Failed to load mathlib path from Tauri storage', error)
+        }
+        if (active) {
+          setMathlibPath(window.localStorage.getItem('mathlibPath') ?? '')
+          setMathlibPathLoaded(true)
+        }
+      }
+      void loadPath()
+      return () => {
+        active = false
+      }
     } else {
       setVscodePath(window.localStorage.getItem('vscodePath') ?? '')
     }
@@ -956,11 +977,23 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
       return
     }
     if (isTauri) {
-      window.localStorage.setItem('mathlibPath', mathlibPath)
+      if (!mathlibPathLoaded) {
+        return
+      }
+      const savePath = async () => {
+        try {
+          const core = await import(/* @vite-ignore */ '@tauri-apps/api/core')
+          await core.invoke('save_mathlib_path', { path: mathlibPath })
+        } catch (error) {
+          console.warn('Failed to save mathlib path to Tauri storage', error)
+          window.localStorage.setItem('mathlibPath', mathlibPath)
+        }
+      }
+      void savePath()
     } else {
       window.localStorage.setItem('vscodePath', vscodePath)
     }
-  }, [mathlibPath, vscodePath, isTauri])
+  }, [mathlibPath, mathlibPathLoaded, vscodePath, isTauri])
 
   useEffect(() => {
     if (!isVscode) {

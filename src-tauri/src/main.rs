@@ -13,10 +13,9 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use tauri::{Emitter, State};
+use tauri::{path::BaseDirectory, Emitter, Manager, State};
 use walkdir::WalkDir;
 
-const MAX_DEPTH: usize = 5;
 const MIN_PERCENT: f64 = 0.01;
 const GROUP_BY_KEY: &str = "loc";
 
@@ -164,7 +163,7 @@ fn add_build_file(
     let base_name = file_name.unwrap().trim_end_matches(".lean");
     let mut segments: Vec<&str> = parts;
     segments.push(base_name);
-    let depth = std::cmp::min(segments.len(), MAX_DEPTH);
+    let depth = segments.len();
 
     let FileMetrics {
         loc,
@@ -537,6 +536,46 @@ fn open_external(url: String) -> Result<(), String> {
     Ok(())
 }
 
+fn mathlib_path_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let path = app
+        .path()
+        .resolve("mathlib_path.txt", BaseDirectory::AppConfig)
+        .map_err(|error| error.to_string())?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    Ok(path)
+}
+
+#[tauri::command]
+fn load_mathlib_path(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let path = mathlib_path_file(&app)?;
+    match fs::read_to_string(path) {
+        Ok(contents) => {
+            let trimmed = contents.trim().to_string();
+            if trimmed.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(trimmed))
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+#[tauri::command]
+fn save_mathlib_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    let target = mathlib_path_file(&app)?;
+    if path.trim().is_empty() {
+        if target.exists() {
+            fs::remove_file(target).map_err(|error| error.to_string())?;
+        }
+        return Ok(());
+    }
+    fs::write(target, path).map_err(|error| error.to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -545,7 +584,9 @@ fn main() {
             scan_mathlib,
             start_mathlib_watch,
             stop_mathlib_watch,
-            open_external
+            open_external,
+            load_mathlib_path,
+            save_mathlib_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
