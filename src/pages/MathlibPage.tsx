@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as d3 from 'd3'
 import { SiteHeader } from '../components/SiteHeader'
 import { useThemeMode } from '../hooks/useThemeMode'
-import treemapData from '../assets/mathlib_treemap.json'
 import '../App.css'
 
 type TreemapNode = {
@@ -101,6 +100,13 @@ type BuildNode = {
   adaptationNotes: number
   noteTotal: number
   regexCounts: Record<string, number>
+}
+
+const emptyTreemapRoot: TreemapNode = {
+  name: 'Mathlib',
+  path: 'Mathlib',
+  series: {},
+  children: [],
 }
 
 const portingNoteRegex = /porting[\s_-]*note/gi
@@ -296,6 +302,51 @@ const collectSeriesKeys = (node: TreemapNode, keys: Set<string>) => {
   node.children?.forEach((child) => collectSeriesKeys(child, keys))
 }
 
+const buildTreeFromEntries = (entries: UploadedEntry[]): TreemapNode => {
+  const rootName = entries[0]?.path.split('/').filter(Boolean)[0] ?? 'Root'
+  const rootNode: TreemapNode = {
+    name: rootName,
+    path: rootName,
+    series: {},
+    children: [],
+    kind: 'module',
+  }
+  const index = new Map<string, TreemapNode>()
+  index.set('', rootNode)
+  for (const entry of entries) {
+    const parts = entry.path.split('/').filter(Boolean)
+    let currentPath = ''
+    let current = rootNode
+    parts.forEach((part, idx) => {
+      currentPath = currentPath ? `${currentPath}/${part}` : part
+      let child = index.get(currentPath)
+      if (!child) {
+        const isLeaf = idx === parts.length - 1
+        child = {
+          name: part,
+          path: currentPath,
+          series: {},
+          children: [],
+          kind: isLeaf ? 'file' : 'module',
+          isLeaf: isLeaf || undefined,
+        }
+        current.children = current.children ?? []
+        current.children.push(child)
+        index.set(currentPath, child)
+      }
+      if (idx === parts.length - 1) {
+        child.series = entry.series
+      }
+      current = child
+    })
+  }
+  const children = rootNode.children ?? []
+  if (children.length === 1 && Object.keys(rootNode.series ?? {}).length === 0) {
+    return children[0]
+  }
+  return rootNode
+}
+
 const convertMetricsNode = (node: MetricsNode): TreemapNode => {
   const children = node.children?.map(convertMetricsNode) ?? []
   const metrics = node.metrics ?? {}
@@ -338,6 +389,30 @@ const isMetricsReport = (value: unknown): value is MetricsReport => {
   }
   const rootObj = root as { metrics?: unknown; kind?: unknown }
   return typeof rootObj.metrics === 'object' && typeof rootObj.kind === 'string'
+}
+
+const parseTreemapPayload = (parsed: UploadedData | MetricsReport): TreemapData | null => {
+  if (isMetricsReport(parsed)) {
+    return convertMetricsReport(parsed)
+  }
+  if (parsed.root) {
+    const normalized = normalizeNode(parsed.root)
+    if (parsed.seriesKeys) {
+      return { root: normalized, seriesKeys: parsed.seriesKeys }
+    }
+    const keys = new Set<string>()
+    collectSeriesKeys(normalized, keys)
+    return { root: normalized, seriesKeys: Array.from(keys) }
+  }
+  if (parsed.entries) {
+    const built = normalizeNode(buildTreeFromEntries(parsed.entries))
+    const keys = new Set<string>()
+    parsed.entries.forEach((entry) => {
+      Object.keys(entry.series ?? {}).forEach((key) => keys.add(key))
+    })
+    return { root: built, seriesKeys: Array.from(keys) }
+  }
+  return null
 }
 
 const buildTreemapFromFiles = async (files: FileList, regexPatterns: string[]) => {
@@ -618,15 +693,12 @@ const useTreemap = (
 export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   const { mode, setMode, theme } = useThemeMode()
   const treemapRef = useRef<HTMLDivElement>(null)
-  const rawData = treemapData as unknown as TreemapData
-  const defaultData = useMemo<TreemapNode>(() => (
-    normalizeNode(rawData.root ?? (treemapData as unknown as TreemapNode))
-  ), [rawData])
-  const defaultSeriesKeys = useMemo<string[]>(() => (
-    rawData.seriesKeys ?? []
-  ), [rawData.seriesKeys])
-  const [data, setData] = useState<TreemapNode>(defaultData)
-  const [seriesKeys, setSeriesKeys] = useState<string[]>(defaultSeriesKeys)
+  const hasCustomDataRef = useRef(false)
+  const [defaultData, setDefaultData] = useState<TreemapNode>(emptyTreemapRoot)
+  const [defaultSeriesKeys, setDefaultSeriesKeys] = useState<string[]>([])
+  const [data, setData] = useState<TreemapNode>(emptyTreemapRoot)
+  const [seriesKeys, setSeriesKeys] = useState<string[]>([])
+  const [isDefaultLoading, setIsDefaultLoading] = useState<boolean>(true)
   const [sizeSeries, setSizeSeries] = useState<string>('loc')
   const [colorSeries, setColorSeries] = useState<string>('porting_notes')
   const [colorMode, setColorMode] = useState<ColorMode>('global')
@@ -690,6 +762,44 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   const blendActive = useMemo(() => (
     Object.values(blendWeights).some((value) => value !== 0)
   ), [blendWeights])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      setIsDefaultLoading(false)
+      return
+    }
+    let active = true
+    const loadDefault = async () => {
+      try {
+        const url = new URL('./mathlib_treemap.json', window.location.href)
+        const response = await fetch(url.toString())
+        if (!response.ok) {
+          throw new Error(`Failed to load default treemap data: ${response.status}`)
+        }
+        const parsed = await response.json() as UploadedData | MetricsReport
+        const normalized = parseTreemapPayload(parsed)
+        if (!normalized || !active) {
+          return
+        }
+        setDefaultData(normalized.root)
+        setDefaultSeriesKeys(normalized.seriesKeys)
+        if (!hasCustomDataRef.current) {
+          setData(normalized.root)
+          setSeriesKeys(normalized.seriesKeys)
+        }
+      } catch (error) {
+        console.warn('Failed to load default treemap data', error)
+      } finally {
+        if (active) {
+          setIsDefaultLoading(false)
+        }
+      }
+    }
+    void loadDefault()
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     if (blendKeys.length === 0) {
@@ -870,6 +980,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
           const root = result.root
           const keys = result.seriesKeys ?? Object.keys(root.series ?? {})
           window.setTimeout(() => {
+            hasCustomDataRef.current = true
             setData(root)
             setSeriesKeys(keys)
             finishRebuild('tauri-manual')
@@ -1060,6 +1171,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
       beginRebuild('file-build')
       const built = await buildTreemapFromFiles(files, regexPatterns)
       window.setTimeout(() => {
+        hasCustomDataRef.current = true
         setData(built.root)
         setSeriesKeys(built.seriesKeys)
         finishRebuild('file-build')
@@ -1088,6 +1200,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
 
   const handleResetMathlibPath = () => {
     setMathlibPath('')
+    hasCustomDataRef.current = false
     setData(defaultData)
     setSeriesKeys(defaultSeriesKeys)
     if (isTauri) {
@@ -1102,81 +1215,14 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
     }
   }
 
-  const buildTreeFromEntries = (entries: UploadedEntry[]): TreemapNode => {
-    const rootName = entries[0]?.path.split('/').filter(Boolean)[0] ?? 'Root'
-    const rootNode: TreemapNode = {
-      name: rootName,
-      path: rootName,
-      series: {},
-      children: [],
-      kind: 'module',
-    }
-    const index = new Map<string, TreemapNode>()
-    index.set('', rootNode)
-    for (const entry of entries) {
-      const parts = entry.path.split('/').filter(Boolean)
-      let currentPath = ''
-      let current = rootNode
-      parts.forEach((part, idx) => {
-        currentPath = currentPath ? `${currentPath}/${part}` : part
-        let child = index.get(currentPath)
-        if (!child) {
-          const isLeaf = idx === parts.length - 1
-          child = {
-            name: part,
-            path: currentPath,
-            series: {},
-            children: [],
-            kind: isLeaf ? 'file' : 'module',
-            isLeaf: isLeaf || undefined,
-          }
-          current.children = current.children ?? []
-          current.children.push(child)
-          index.set(currentPath, child)
-        }
-        if (idx === parts.length - 1) {
-          child.series = entry.series
-        }
-        current = child
-      })
-    }
-    const children = rootNode.children ?? []
-    if (children.length === 1 && Object.keys(rootNode.series ?? {}).length === 0) {
-      return children[0]
-    }
-    return rootNode
-  }
-
   const applyUploadedData = useCallback((parsed: UploadedData | MetricsReport) => {
-    if (isMetricsReport(parsed)) {
-      const converted = convertMetricsReport(parsed)
-      if (converted) {
-        setData(converted.root)
-        setSeriesKeys(converted.seriesKeys)
-      }
+    const normalized = parseTreemapPayload(parsed)
+    if (!normalized) {
       return
     }
-    if (parsed.root) {
-      const normalized = normalizeNode(parsed.root)
-      setData(normalized)
-      if (parsed.seriesKeys) {
-        setSeriesKeys(parsed.seriesKeys)
-      } else {
-        const keys = new Set<string>()
-        collectSeriesKeys(normalized, keys)
-        setSeriesKeys(Array.from(keys))
-      }
-      return
-    }
-    if (parsed.entries) {
-      const built = normalizeNode(buildTreeFromEntries(parsed.entries))
-      setData(built)
-      const keys = new Set<string>()
-      parsed.entries.forEach((entry) => {
-        Object.keys(entry.series ?? {}).forEach((key) => keys.add(key))
-      })
-      setSeriesKeys(Array.from(keys))
-    }
+    setData(normalized.root)
+    setSeriesKeys(normalized.seriesKeys)
+    hasCustomDataRef.current = true
   }, [])
 
 
@@ -1246,6 +1292,7 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
   }, [applyUploadedData, beginRebuild, finishRebuild, isVscode])
 
   const handleReset = () => {
+    hasCustomDataRef.current = false
     setData(defaultData)
     setSeriesKeys(defaultSeriesKeys)
     setSizeSeries(defaultSeriesKeys.includes('infotree_nodes_total')
@@ -1561,6 +1608,12 @@ export const MathlibPage = ({ embedded = false }: MathlibPageProps) => {
             <div className="treemap-rebuild">
               <span className="treemap-spinner" aria-hidden="true" />
               <span>Rebuilding</span>
+            </div>
+          ) : null}
+          {isDefaultLoading ? (
+            <div className="treemap-rebuild">
+              <span className="treemap-spinner" aria-hidden="true" />
+              <span>Loading default dataset</span>
             </div>
           ) : null}
           <div className="treemap-canvas" ref={treemapRef} />

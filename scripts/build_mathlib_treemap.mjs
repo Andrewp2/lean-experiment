@@ -5,7 +5,7 @@ import path from 'node:path'
 const projectRoot = process.cwd()
 const mathlibPath = process.argv[2] || process.env.MATHLIB_PATH
 const outputPath =
-  process.argv[3] || path.join(projectRoot, 'src', 'assets', 'mathlib_treemap.json')
+  process.argv[3] || path.join(projectRoot, 'public', 'mathlib_treemap.json')
 const groupByKey = process.env.GROUP_BY ?? 'loc'
 if (!mathlibPath) {
   console.error('Provide Mathlib path via MATHLIB_PATH or as the first argument.')

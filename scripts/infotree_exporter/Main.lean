@@ -10,168 +10,6 @@ open Lean.Elab
 open Lean.Language
 open Lean.Language.Lean
 
-structure InfoTreeCounts where
-  treesTotal : Nat := 0
-  contextNodes : Nat := 0
-  holes : Nat := 0
-  infoItemsTotal : Nat := 0
-  tacticInfos : Nat := 0
-  termInfos : Nat := 0
-  partialTermInfos : Nat := 0
-  commandInfos : Nat := 0
-  macroExpansionInfos : Nat := 0
-  optionInfos : Nat := 0
-  errorNameInfos : Nat := 0
-  fieldInfos : Nat := 0
-  completionInfos : Nat := 0
-  userWidgetInfos : Nat := 0
-  customInfos : Nat := 0
-  fvarAliasInfos : Nat := 0
-  fieldRedeclInfos : Nat := 0
-  delabTermInfos : Nat := 0
-  choiceInfos : Nat := 0
-  docInfos : Nat := 0
-  docElabInfos : Nat := 0
-  deriving Inhabited
-
-def InfoTreeCounts.bump (f : InfoTreeCounts → Nat) (set : InfoTreeCounts → Nat → InfoTreeCounts) :
-    InfoTreeCounts → InfoTreeCounts := fun c => set c (f c + 1)
-
-def InfoTreeCounts.incTrees : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.treesTotal (fun c v => { c with treesTotal := v })
-
-def InfoTreeCounts.incContext : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.contextNodes (fun c v => { c with contextNodes := v })
-
-def InfoTreeCounts.incHoles : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.holes (fun c v => { c with holes := v })
-
-def InfoTreeCounts.incInfoItems : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.infoItemsTotal (fun c v => { c with infoItemsTotal := v })
-
-def InfoTreeCounts.incTactic : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.tacticInfos (fun c v => { c with tacticInfos := v })
-
-def InfoTreeCounts.incTerm : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.termInfos (fun c v => { c with termInfos := v })
-
-def InfoTreeCounts.incPartialTerm : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.partialTermInfos (fun c v => { c with partialTermInfos := v })
-
-def InfoTreeCounts.incCommand : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.commandInfos (fun c v => { c with commandInfos := v })
-
-def InfoTreeCounts.incMacro : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.macroExpansionInfos (fun c v => { c with macroExpansionInfos := v })
-
-def InfoTreeCounts.incOption : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.optionInfos (fun c v => { c with optionInfos := v })
-
-def InfoTreeCounts.incErrorName : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.errorNameInfos (fun c v => { c with errorNameInfos := v })
-
-def InfoTreeCounts.incField : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.fieldInfos (fun c v => { c with fieldInfos := v })
-
-def InfoTreeCounts.incCompletion : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.completionInfos (fun c v => { c with completionInfos := v })
-
-def InfoTreeCounts.incUserWidget : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.userWidgetInfos (fun c v => { c with userWidgetInfos := v })
-
-def InfoTreeCounts.incCustom : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.customInfos (fun c v => { c with customInfos := v })
-
-def InfoTreeCounts.incFVarAlias : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.fvarAliasInfos (fun c v => { c with fvarAliasInfos := v })
-
-def InfoTreeCounts.incFieldRedecl : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.fieldRedeclInfos (fun c v => { c with fieldRedeclInfos := v })
-
-def InfoTreeCounts.incDelab : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.delabTermInfos (fun c v => { c with delabTermInfos := v })
-
-def InfoTreeCounts.incChoice : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.choiceInfos (fun c v => { c with choiceInfos := v })
-
-def InfoTreeCounts.incDoc : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.docInfos (fun c v => { c with docInfos := v })
-
-def InfoTreeCounts.incDocElab : InfoTreeCounts → InfoTreeCounts :=
-  InfoTreeCounts.bump InfoTreeCounts.docElabInfos (fun c v => { c with docElabInfos := v })
-
-def InfoTreeCounts.add (a b : InfoTreeCounts) : InfoTreeCounts :=
-  { treesTotal := a.treesTotal + b.treesTotal
-    contextNodes := a.contextNodes + b.contextNodes
-    holes := a.holes + b.holes
-    infoItemsTotal := a.infoItemsTotal + b.infoItemsTotal
-    tacticInfos := a.tacticInfos + b.tacticInfos
-    termInfos := a.termInfos + b.termInfos
-    partialTermInfos := a.partialTermInfos + b.partialTermInfos
-    commandInfos := a.commandInfos + b.commandInfos
-    macroExpansionInfos := a.macroExpansionInfos + b.macroExpansionInfos
-    optionInfos := a.optionInfos + b.optionInfos
-    errorNameInfos := a.errorNameInfos + b.errorNameInfos
-    fieldInfos := a.fieldInfos + b.fieldInfos
-    completionInfos := a.completionInfos + b.completionInfos
-    userWidgetInfos := a.userWidgetInfos + b.userWidgetInfos
-    customInfos := a.customInfos + b.customInfos
-    fvarAliasInfos := a.fvarAliasInfos + b.fvarAliasInfos
-    fieldRedeclInfos := a.fieldRedeclInfos + b.fieldRedeclInfos
-    delabTermInfos := a.delabTermInfos + b.delabTermInfos
-    choiceInfos := a.choiceInfos + b.choiceInfos
-    docInfos := a.docInfos + b.docInfos
-    docElabInfos := a.docElabInfos + b.docElabInfos }
-
-def countInfo (info : Info) (counts : InfoTreeCounts) : InfoTreeCounts :=
-  match info with
-  | .ofTacticInfo _ => counts.incInfoItems.incTactic
-  | .ofTermInfo _ => counts.incInfoItems.incTerm
-  | .ofPartialTermInfo _ => counts.incInfoItems.incPartialTerm
-  | .ofCommandInfo _ => counts.incInfoItems.incCommand
-  | .ofMacroExpansionInfo _ => counts.incInfoItems.incMacro
-  | .ofOptionInfo _ => counts.incInfoItems.incOption
-  | .ofErrorNameInfo _ => counts.incInfoItems.incErrorName
-  | .ofFieldInfo _ => counts.incInfoItems.incField
-  | .ofCompletionInfo _ => counts.incInfoItems.incCompletion
-  | .ofUserWidgetInfo _ => counts.incInfoItems.incUserWidget
-  | .ofCustomInfo _ => counts.incInfoItems.incCustom
-  | .ofFVarAliasInfo _ => counts.incInfoItems.incFVarAlias
-  | .ofFieldRedeclInfo _ => counts.incInfoItems.incFieldRedecl
-  | .ofDelabTermInfo _ => counts.incInfoItems.incDelab
-  | .ofChoiceInfo _ => counts.incInfoItems.incChoice
-  | .ofDocInfo _ => counts.incInfoItems.incDoc
-  | .ofDocElabInfo _ => counts.incInfoItems.incDocElab
-
-partial def countTree (tree : InfoTree) (counts : InfoTreeCounts) : InfoTreeCounts :=
-  match tree with
-  | .context _ child =>
-      countTree child (counts.incTrees.incContext)
-  | .hole _ =>
-      counts.incTrees.incHoles
-  | .node info children =>
-      let counts := countInfo info (counts.incTrees)
-      children.foldl (fun acc child => countTree child acc) counts
-
-def countTrees (trees : Array InfoTree) : InfoTreeCounts :=
-  trees.foldl (fun acc tree => countTree tree acc) {}
-
-def InfoTreeCounts.toMetricsJson (c : InfoTreeCounts) : Json :=
-  let termInfoItems := c.termInfos + c.partialTermInfos + c.delabTermInfos
-  let tacticSteps := c.tacticInfos
-  Json.mkObj [
-    ("infotree_nodes_total", toJson c.treesTotal),
-    ("infotree_context_nodes", toJson c.contextNodes),
-    ("infotree_holes", toJson c.holes),
-    ("infotree_info_items_total", toJson c.infoItemsTotal),
-    ("infotree_tactic_state_items", toJson c.tacticInfos),
-    ("infotree_term_info_items", toJson termInfoItems),
-    ("infotree_diagnostic_items", toJson c.errorNameInfos),
-    ("infotree_widget_items", toJson c.userWidgetInfos),
-    ("infotree_commands_count", toJson c.commandInfos),
-    ("infotree_tactic_steps", toJson tacticSteps)
-  ]
-
 def jsonArray (items : Array Json) : Json :=
   Json.arr items
 
@@ -198,6 +36,17 @@ def syntaxToJson (stx : Syntax) : Json :=
 
 def exprToJson (expr : Expr) : Json :=
   toJson (toString expr)
+
+def expectedTypeToJson (maxExpectedExprNodes? : Option Nat) (expr : Expr) : Json :=
+  match maxExpectedExprNodes? with
+  | some maxNodes =>
+      let size := expr.sizeWithoutSharing
+      if size > maxNodes then
+        toJson s!"<expectedType truncated size={size}>"
+      else
+        exprToJson expr
+  | none =>
+      exprToJson expr
 
 def lctxSizeToJson (lctx : LocalContext) : Json :=
   toJson lctx.decls.size
@@ -227,25 +76,200 @@ def partialContextToJson (ctx : PartialContextInfo) : Json :=
         ("autoImplicits", jsonArray <| autoImplicits.map exprToJson)
       ]
 
-def termInfoToJson (info : TermInfo) : Json :=
+structure StringMetrics where
+  exprBytes : Nat := 0
+  exprMax : Nat := 0
+  exprCount : Nat := 0
+  expectedBytes : Nat := 0
+  expectedMax : Nat := 0
+  expectedCount : Nat := 0
+  expectedSkipped : Nat := 0
+  expectedSkippedMax : Nat := 0
+  docBytes : Nat := 0
+  docMax : Nat := 0
+  docCount : Nat := 0
+  deriving Inhabited
+
+def StringMetrics.recordExpr (stats : StringMetrics) (value : String) : StringMetrics :=
+  let size := value.length
+  { stats with
+    exprBytes := stats.exprBytes + size
+    exprMax := max stats.exprMax size
+    exprCount := stats.exprCount + 1 }
+
+def StringMetrics.recordExpected (stats : StringMetrics) (value : String) : StringMetrics :=
+  let size := value.length
+  { stats with
+    expectedBytes := stats.expectedBytes + size
+    expectedMax := max stats.expectedMax size
+    expectedCount := stats.expectedCount + 1 }
+
+def StringMetrics.recordDoc (stats : StringMetrics) (value : String) : StringMetrics :=
+  let size := value.length
+  { stats with
+    docBytes := stats.docBytes + size
+    docMax := max stats.docMax size
+    docCount := stats.docCount + 1 }
+
+def recordExpr (ref : IO.Ref StringMetrics) (expr : Expr) : IO Unit := do
+  let rendered := toString expr
+  ref.modify (·.recordExpr rendered)
+
+def recordExpected (ref : IO.Ref StringMetrics) (expr : Expr)
+    (maxExpectedExprNodes? : Option Nat) : IO Unit := do
+  if let some maxNodes := maxExpectedExprNodes? then
+    let size := expr.sizeWithoutSharing
+    if size > maxNodes then
+      ref.modify fun stats => {
+        stats with
+        expectedSkipped := stats.expectedSkipped + 1
+        expectedSkippedMax := max stats.expectedSkippedMax size
+      }
+    else
+      let rendered := toString expr
+      ref.modify (·.recordExpected rendered)
+  else
+    let rendered := toString expr
+    ref.modify (·.recordExpected rendered)
+
+def recordDocString (ref : IO.Ref StringMetrics) (value : String) : IO Unit := do
+  ref.modify (·.recordDoc value)
+
+def recordTermInfo (ref : IO.Ref StringMetrics) (info : TermInfo)
+    (maxExpectedExprNodes? : Option Nat) : IO Unit := do
+  recordExpr ref info.expr
+  match info.expectedType? with
+  | some expr => recordExpected ref expr maxExpectedExprNodes?
+  | none => pure ()
+
+def recordPartialTermInfo (ref : IO.Ref StringMetrics) (info : PartialTermInfo)
+    (maxExpectedExprNodes? : Option Nat) : IO Unit := do
+  match info.expectedType? with
+  | some expr => recordExpected ref expr maxExpectedExprNodes?
+  | none => pure ()
+
+def recordFieldInfo (ref : IO.Ref StringMetrics) (info : FieldInfo) : IO Unit := do
+  recordExpr ref info.val
+
+def recordDelabTermInfo (ref : IO.Ref StringMetrics) (info : DelabTermInfo)
+    (maxExpectedExprNodes? : Option Nat) : IO Unit := do
+  recordExpr ref info.expr
+  match info.expectedType? with
+  | some expr => recordExpected ref expr maxExpectedExprNodes?
+  | none => pure ()
+  match info.docString? with
+  | some doc => recordDocString ref doc
+  | none => pure ()
+
+def recordCompletionInfo (ref : IO.Ref StringMetrics) (info : CompletionInfo)
+    (maxExpectedExprNodes? : Option Nat) : IO Unit := do
+  match info with
+  | .dot termInfo expectedType? =>
+      recordTermInfo ref termInfo maxExpectedExprNodes?
+      match expectedType? with
+      | some expr => recordExpected ref expr maxExpectedExprNodes?
+      | none => pure ()
+  | .id _ _ _ _ expectedType? =>
+      match expectedType? with
+      | some expr => recordExpected ref expr maxExpectedExprNodes?
+      | none => pure ()
+  | .dotId _ _ _ expectedType? =>
+      match expectedType? with
+      | some expr => recordExpected ref expr maxExpectedExprNodes?
+      | none => pure ()
+  | .fieldId _ _ _ _ =>
+      pure ()
+  | .namespaceId _ =>
+      pure ()
+  | .option _ =>
+      pure ()
+  | .errorName _ _ =>
+      pure ()
+  | .endSection _ _ _ _ =>
+      pure ()
+  | .tactic _ =>
+      pure ()
+
+def recordPartialContext (ref : IO.Ref StringMetrics) (ctx : PartialContextInfo) : IO Unit := do
+  match ctx with
+  | .commandCtx _ => pure ()
+  | .parentDeclCtx _ => pure ()
+  | .autoImplicitCtx autoImplicits =>
+      for expr in autoImplicits do
+        recordExpr ref expr
+
+def recordInfoMetrics (ref : IO.Ref StringMetrics) (info : Info)
+    (maxExpectedExprNodes? : Option Nat) : IO Unit := do
+  match info with
+  | .ofTacticInfo _ => pure ()
+  | .ofTermInfo i => recordTermInfo ref i maxExpectedExprNodes?
+  | .ofPartialTermInfo i => recordPartialTermInfo ref i maxExpectedExprNodes?
+  | .ofCommandInfo _ => pure ()
+  | .ofMacroExpansionInfo _ => pure ()
+  | .ofOptionInfo _ => pure ()
+  | .ofErrorNameInfo _ => pure ()
+  | .ofFieldInfo i => recordFieldInfo ref i
+  | .ofCompletionInfo i => recordCompletionInfo ref i maxExpectedExprNodes?
+  | .ofUserWidgetInfo _ => pure ()
+  | .ofCustomInfo _ => pure ()
+  | .ofFVarAliasInfo _ => pure ()
+  | .ofFieldRedeclInfo _ => pure ()
+  | .ofDelabTermInfo i => recordDelabTermInfo ref i maxExpectedExprNodes?
+  | .ofChoiceInfo _ => pure ()
+  | .ofDocInfo _ => pure ()
+  | .ofDocElabInfo _ => pure ()
+
+def writeStringMetricsCsv (csvPath : System.FilePath) (relativePath : System.FilePath)
+    (metrics : StringMetrics) (stage : String) (nodes : Nat) : IO Unit := do
+  let parent := csvPath.parent.getD "."
+  IO.FS.createDirAll parent
+  let header :=
+    "path,stage,nodes,expr_bytes,expr_max,expr_count,expected_bytes,expected_max,expected_count,expected_skipped,expected_skipped_max,doc_bytes,doc_max,doc_count\n"
+  let fileExists ← csvPath.pathExists
+  IO.FS.withFile csvPath .append fun handle => do
+    if !fileExists then
+      handle.putStr header
+    let row :=
+      s!"{relativePath},{stage},{nodes}," ++
+      s!"{metrics.exprBytes},{metrics.exprMax},{metrics.exprCount}," ++
+      s!"{metrics.expectedBytes},{metrics.expectedMax},{metrics.expectedCount}," ++
+      s!"{metrics.expectedSkipped},{metrics.expectedSkippedMax}," ++
+      s!"{metrics.docBytes},{metrics.docMax},{metrics.docCount}\n"
+    handle.putStr row
+
+partial def startMetricsHeartbeat (csvPath : System.FilePath) (relativePath : System.FilePath)
+    (metricsRef : IO.Ref StringMetrics) (countRef : IO.Ref Nat) : IO (IO.Ref Bool) := do
+  let runningRef ← IO.mkRef true
+  let rec loop : IO Unit := do
+    if !(← runningRef.get) then
+      return ()
+    let metrics ← metricsRef.get
+    let count ← countRef.get
+    writeStringMetricsCsv csvPath relativePath metrics "heartbeat" count
+    IO.sleep 1000
+    loop
+  let _ ← IO.asTask loop
+  return runningRef
+
+def termInfoToJson (maxExpectedExprNodes? : Option Nat) (info : TermInfo) : Json :=
   Json.mkObj [
     ("kind", toJson "term"),
     ("elaborator", nameToJson info.elaborator),
     ("stx", syntaxToJson info.stx),
     ("lctxSize", lctxSizeToJson info.lctx),
-    ("expectedType", optionToJson exprToJson info.expectedType?),
+    ("expectedType", optionToJson (expectedTypeToJson maxExpectedExprNodes?) info.expectedType?),
     ("expr", exprToJson info.expr),
     ("isBinder", toJson info.isBinder),
     ("isDisplayableTerm", toJson info.isDisplayableTerm)
   ]
 
-def partialTermInfoToJson (info : PartialTermInfo) : Json :=
+def partialTermInfoToJson (maxExpectedExprNodes? : Option Nat) (info : PartialTermInfo) : Json :=
   Json.mkObj [
     ("kind", toJson "partialTerm"),
     ("elaborator", nameToJson info.elaborator),
     ("stx", syntaxToJson info.stx),
     ("lctxSize", lctxSizeToJson info.lctx),
-    ("expectedType", optionToJson exprToJson info.expectedType?)
+    ("expectedType", optionToJson (expectedTypeToJson maxExpectedExprNodes?) info.expectedType?)
   ]
 
 def commandInfoToJson (info : CommandInfo) : Json :=
@@ -297,13 +321,13 @@ def fieldInfoToJson (info : FieldInfo) : Json :=
     ("stx", syntaxToJson info.stx)
   ]
 
-def completionInfoToJson (info : CompletionInfo) : Json :=
+def completionInfoToJson (maxExpectedExprNodes? : Option Nat) (info : CompletionInfo) : Json :=
   match info with
   | .dot termInfo expectedType? =>
       Json.mkObj [
         ("kind", toJson "completion.dot"),
-        ("termInfo", termInfoToJson termInfo),
-        ("expectedType", optionToJson exprToJson expectedType?)
+        ("termInfo", termInfoToJson maxExpectedExprNodes? termInfo),
+        ("expectedType", optionToJson (expectedTypeToJson maxExpectedExprNodes?) expectedType?)
       ]
   | .id stx id danglingDot lctx expectedType? =>
       Json.mkObj [
@@ -312,7 +336,7 @@ def completionInfoToJson (info : CompletionInfo) : Json :=
         ("id", nameToJson id),
         ("danglingDot", toJson danglingDot),
         ("lctxSize", lctxSizeToJson lctx),
-        ("expectedType", optionToJson exprToJson expectedType?)
+        ("expectedType", optionToJson (expectedTypeToJson maxExpectedExprNodes?) expectedType?)
       ]
   | .dotId stx id lctx expectedType? =>
       Json.mkObj [
@@ -320,7 +344,7 @@ def completionInfoToJson (info : CompletionInfo) : Json :=
         ("stx", syntaxToJson stx),
         ("id", nameToJson id),
         ("lctxSize", lctxSizeToJson lctx),
-        ("expectedType", optionToJson exprToJson expectedType?)
+        ("expectedType", optionToJson (expectedTypeToJson maxExpectedExprNodes?) expectedType?)
       ]
   | .fieldId stx id lctx structName =>
       Json.mkObj [
@@ -388,13 +412,13 @@ def fieldRedeclInfoToJson (info : FieldRedeclInfo) : Json :=
     ("stx", syntaxToJson info.stx)
   ]
 
-def delabTermInfoToJson (info : DelabTermInfo) : Json :=
+def delabTermInfoToJson (maxExpectedExprNodes? : Option Nat) (info : DelabTermInfo) : Json :=
   Json.mkObj [
     ("kind", toJson "delabTerm"),
     ("elaborator", nameToJson info.elaborator),
     ("stx", syntaxToJson info.stx),
     ("lctxSize", lctxSizeToJson info.lctx),
-    ("expectedType", optionToJson exprToJson info.expectedType?),
+    ("expectedType", optionToJson (expectedTypeToJson maxExpectedExprNodes?) info.expectedType?),
     ("expr", exprToJson info.expr),
     ("isBinder", toJson info.isBinder),
     ("isDisplayableTerm", toJson info.isDisplayableTerm),
@@ -426,33 +450,33 @@ def docElabInfoToJson (info : DocElabInfo) : Json :=
     ("docKind", toJson (reprStr info.kind))
   ]
 
-def infoToJson (info : Info) : Json :=
+def infoToJson (maxExpectedExprNodes? : Option Nat) (info : Info) : Json :=
   match info with
   | .ofTacticInfo i => tacticInfoToJson i
-  | .ofTermInfo i => termInfoToJson i
-  | .ofPartialTermInfo i => partialTermInfoToJson i
+  | .ofTermInfo i => termInfoToJson maxExpectedExprNodes? i
+  | .ofPartialTermInfo i => partialTermInfoToJson maxExpectedExprNodes? i
   | .ofCommandInfo i => commandInfoToJson i
   | .ofMacroExpansionInfo i => macroExpansionInfoToJson i
   | .ofOptionInfo i => optionInfoToJson i
   | .ofErrorNameInfo i => errorNameInfoToJson i
   | .ofFieldInfo i => fieldInfoToJson i
-  | .ofCompletionInfo i => completionInfoToJson i
+  | .ofCompletionInfo i => completionInfoToJson maxExpectedExprNodes? i
   | .ofUserWidgetInfo i => userWidgetInfoToJson i
   | .ofCustomInfo i => customInfoToJson i
   | .ofFVarAliasInfo i => fvarAliasInfoToJson i
   | .ofFieldRedeclInfo i => fieldRedeclInfoToJson i
-  | .ofDelabTermInfo i => delabTermInfoToJson i
+  | .ofDelabTermInfo i => delabTermInfoToJson maxExpectedExprNodes? i
   | .ofChoiceInfo i => choiceInfoToJson i
   | .ofDocInfo i => docInfoToJson i
   | .ofDocElabInfo i => docElabInfoToJson i
 
-partial def infoTreeToJson (tree : InfoTree) : Json :=
+partial def infoTreeToJson (maxExpectedExprNodes? : Option Nat) (tree : InfoTree) : Json :=
   match tree with
   | .context ctx child =>
       Json.mkObj [
         ("kind", toJson "context"),
         ("context", partialContextToJson ctx),
-        ("child", infoTreeToJson child)
+        ("child", infoTreeToJson maxExpectedExprNodes? child)
       ]
   | .hole mvarId =>
       Json.mkObj [
@@ -462,39 +486,45 @@ partial def infoTreeToJson (tree : InfoTree) : Json :=
   | .node info children =>
       Json.mkObj [
         ("kind", toJson "node"),
-        ("info", infoToJson info),
-        ("children", jsonArray <| children.toArray.map infoTreeToJson)
+        ("info", infoToJson maxExpectedExprNodes? info),
+        ("children", jsonArray <| children.toArray.map (infoTreeToJson maxExpectedExprNodes?))
       ]
 
 partial def writeInfoTreeJsonLimited (handle : IO.FS.Handle) (tree : InfoTree)
-    (countRef : IO.Ref Nat) (truncatedRef : IO.Ref Bool) (maxNodes? : Option Nat) : IO Unit := do
+    (countRef : IO.Ref Nat) (truncatedRef : IO.Ref Bool) (maxNodes? : Option Nat)
+    (maxExpectedExprNodes? : Option Nat) (metricsRef? : Option (IO.Ref StringMetrics)) : IO Unit := do
   if let some maxNodes := maxNodes? then
     let count ← countRef.get
     if count >= maxNodes then
       truncatedRef.set true
       handle.putStr "{\"kind\":\"truncated\"}"
       return ()
-    countRef.set (count + 1)
+  let count ← countRef.get
+  countRef.set (count + 1)
   match tree with
   | .context ctx child =>
       handle.putStr "{\"kind\":\"context\",\"context\":"
       handle.putStr (Json.compress (partialContextToJson ctx))
       handle.putStr ",\"child\":"
-      writeInfoTreeJsonLimited handle child countRef truncatedRef maxNodes?
+      if let some metricsRef := metricsRef? then
+        recordPartialContext metricsRef ctx
+      writeInfoTreeJsonLimited handle child countRef truncatedRef maxNodes? maxExpectedExprNodes? metricsRef?
       handle.putStr "}"
   | .hole mvarId =>
       handle.putStr "{\"kind\":\"hole\",\"mvarId\":"
       handle.putStr (Json.compress (toJson mvarId.name.toString))
       handle.putStr "}"
   | .node info children =>
+      if let some metricsRef := metricsRef? then
+        recordInfoMetrics metricsRef info maxExpectedExprNodes?
       handle.putStr "{\"kind\":\"node\",\"info\":"
-      handle.putStr (Json.compress (infoToJson info))
+      handle.putStr (Json.compress (infoToJson maxExpectedExprNodes? info))
       handle.putStr ",\"children\":["
       let arr := children.toArray
       for i in [:arr.size] do
         if i > 0 then
           handle.putStr ","
-        writeInfoTreeJsonLimited handle (arr[i]!) countRef truncatedRef maxNodes?
+        writeInfoTreeJsonLimited handle (arr[i]!) countRef truncatedRef maxNodes? maxExpectedExprNodes? metricsRef?
       handle.putStr "]}"
 
 structure Config where
@@ -505,15 +535,16 @@ structure Config where
   verbose : Bool := false
   errorLimit : Nat := 3
   maxSeconds : Option Nat := none
-  maxRssMb : Option Nat := none
   maxInfotreeNodes : Option Nat := none
   singleFile : Option System.FilePath := none
   rssLogMb : Option Nat := none
   memDebug : Bool := false
   continueFlag : Bool := false
-  fullInfotree : Bool := false
   gzip : Bool := false
   skipOnError : Bool := false
+  stringMetrics : Bool := false
+  stringMetricsCsv : Option System.FilePath := none
+  maxExpectedExprNodes : Option Nat := none
   deriving Inhabited
 
 def parseArgs (args : List String) : IO Config := do
@@ -542,16 +573,10 @@ def parseArgs (args : List String) : IO Config := do
         match value.toNat? with
         | some n => go { cfg with maxSeconds := some n } rest
         | none => throw <| IO.userError s!"Invalid --max-seconds value: {value}"
-    | "--max-rss-mb" :: value :: rest =>
-        match value.toNat? with
-        | some n => go { cfg with maxRssMb := some n } rest
-        | none => throw <| IO.userError s!"Invalid --max-rss-mb value: {value}"
     | "--max-infotree-nodes" :: value :: rest =>
         match value.toNat? with
         | some n => go { cfg with maxInfotreeNodes := some n } rest
         | none => throw <| IO.userError s!"Invalid --max-infotree-nodes value: {value}"
-    | "--full-infotree" :: rest =>
-        go { cfg with fullInfotree := true } rest
     | "--gzip" :: rest =>
         go { cfg with gzip := true } rest
     | "--single" :: value :: rest =>
@@ -566,6 +591,14 @@ def parseArgs (args : List String) : IO Config := do
         go { cfg with continueFlag := true } rest
     | "--skip-on-error" :: rest =>
         go { cfg with skipOnError := true } rest
+    | "--string-metrics" :: rest =>
+        go { cfg with stringMetrics := true } rest
+    | "--string-metrics-csv" :: value :: rest =>
+        go { cfg with stringMetrics := true, stringMetricsCsv := some value } rest
+    | "--max-expected-expr-nodes" :: value :: rest =>
+        match value.toNat? with
+        | some n => go { cfg with maxExpectedExprNodes := some n } rest
+        | none => throw <| IO.userError s!"Invalid --max-expected-expr-nodes value: {value}"
     | flag :: _ =>
         throw <| IO.userError s!"Unknown argument: {flag}"
   go {} args
@@ -658,15 +691,8 @@ def mergeSearchPath (paths : Array System.FilePath) : IO Unit := do
       current := current ++ [path]
   Lean.searchPathRef.set current
 
-@[extern "lean_mi_collect"]
-opaque miCollect (force : Bool) : IO Unit
-
 @[extern "lean_mi_stats_print"]
 opaque miStatsPrint : IO Unit
-
-def forceGC : IO Unit := do
-  -- Force mimalloc to run a full collection.
-  miCollect true
 
 def logMiStats : IO Unit := do
   -- Print allocator stats to stderr.
@@ -775,8 +801,6 @@ def buildContinuationArgs (cfg : Config) (start : Nat) (remaining : Option Nat) 
       args := args ++ #["--error-limit", toString cfg.errorLimit]
     if let some maxSeconds := cfg.maxSeconds then
       args := args ++ #["--max-seconds", toString maxSeconds]
-    if let some maxRssMb := cfg.maxRssMb then
-      args := args ++ #["--max-rss-mb", toString maxRssMb]
     if let some rssLogMb := cfg.rssLogMb then
       args := args ++ #["--rss-log-mb", toString rssLogMb]
     if cfg.memDebug then
@@ -785,8 +809,12 @@ def buildContinuationArgs (cfg : Config) (start : Nat) (remaining : Option Nat) 
       args := args.push "--continue"
     if cfg.skipOnError then
       args := args.push "--skip-on-error"
-    if cfg.fullInfotree then
-      args := args.push "--full-infotree"
+    if cfg.stringMetrics then
+      args := args.push "--string-metrics"
+    if let some csv := cfg.stringMetricsCsv then
+      args := args ++ #["--string-metrics-csv", csv.toString]
+    if let some maxNodes := cfg.maxExpectedExprNodes then
+      args := args ++ #["--max-expected-expr-nodes", toString maxNodes]
     if cfg.gzip then
       args := args.push "--gzip"
     return args
@@ -810,8 +838,12 @@ def buildSingleFileArgs (cfg : Config) (file : System.FilePath) : Array String :
       args := args.push "--continue"
     if cfg.skipOnError then
       args := args.push "--skip-on-error"
-    if cfg.fullInfotree then
-      args := args.push "--full-infotree"
+    if cfg.stringMetrics then
+      args := args.push "--string-metrics"
+    if let some csv := cfg.stringMetricsCsv then
+      args := args ++ #["--string-metrics-csv", csv.toString]
+    if let some maxNodes := cfg.maxExpectedExprNodes then
+      args := args ++ #["--max-expected-expr-nodes", toString maxNodes]
     if cfg.gzip then
       args := args.push "--gzip"
     return args
@@ -822,9 +854,6 @@ structure SetupCache where
   importsKey : Array Name
 
 initialize setupCacheRef : IO.Ref (Option SetupCache) ← IO.mkRef none
-
-def resetSetupCache : IO Unit := do
-  setupCacheRef.set none
 
 def importsKeyFromHeader (stx : Elab.HeaderSyntax) : Array Name :=
   stx.toModuleHeader.imports.map (fun imp => imp.module)
@@ -857,7 +886,7 @@ unsafe def getSetupCache (doc : Lean.Server.DocumentMeta) (stx : Elab.HeaderSynt
 
 unsafe def runFrontendForTrees (doc : Lean.Server.DocumentMeta) (verbose : Bool) (errorLimit : Nat)
     (memDebug : Bool) (emitTree? : Option (InfoTree → IO Unit)) :
-    IO (InfoTreeCounts × Nat × Array Message) := do
+    IO (Nat × Array Message) := do
   let _ := verbose
   let inputCtx := doc.mkInputContext
   let cmdlineOpts := ({} : Options)
@@ -889,7 +918,6 @@ unsafe def runFrontendForTrees (doc : Lean.Server.DocumentMeta) (verbose : Bool)
   let snap ← Lean.Language.Lean.process setupFn none ctx
   if memDebug then
     logMemDebug "after_process"
-  let countsRef ← IO.mkRef ({} : InfoTreeCounts)
   let errorCountRef ← IO.mkRef 0
   let errorMessagesRef ← IO.mkRef (#[] : Array Message)
   let processDiagnostics : Snapshot.Diagnostics → IO Unit := fun diagnostics => do
@@ -902,8 +930,6 @@ unsafe def runFrontendForTrees (doc : Lean.Server.DocumentMeta) (verbose : Bool)
   let processInfoTree : Option InfoTree → IO Unit := fun tree? => do
     match tree? with
     | some tree =>
-        let counts ← countsRef.get
-        countsRef.set (countTree tree counts)
         if let some emitTree := emitTree? then
           emitTree tree
     | none => pure ()
@@ -929,10 +955,9 @@ unsafe def runFrontendForTrees (doc : Lean.Server.DocumentMeta) (verbose : Bool)
         loop (some headerState.firstCmdSnap)
   if memDebug then
     logMemDebug "after_command_loop"
-  let counts ← countsRef.get
   let errorCount ← errorCountRef.get
   let errorMessages ← errorMessagesRef.get
-  return (counts, errorCount, errorMessages)
+  return (errorCount, errorMessages)
 
 def outputJsonPaths (cfg : Config) (relativePath : System.FilePath) :
     System.FilePath × System.FilePath := Id.run do
@@ -963,44 +988,69 @@ unsafe def exportFile (cfg : Config) (file : System.FilePath) (index : Nat) (tot
   }
   let outputDir := finalPath.parent.getD cfg.outDir
   IO.FS.createDirAll outputDir
-  let resultAndWrote ←
-    if cfg.fullInfotree then
-      IO.FS.withFile jsonPath .write fun handle => do
-        handle.putStr "{\"infotrees\":["
-        let firstRef ← IO.mkRef true
-        let countRef ← IO.mkRef 0
-        let truncatedRef ← IO.mkRef false
-        let emitTree := fun tree => do
-          let truncated ← truncatedRef.get
-          if truncated then
-            return ()
-          let first ← firstRef.get
-          if first then
-            firstRef.set false
-          else
-            handle.putStr ","
-          writeInfoTreeJsonLimited handle tree countRef truncatedRef cfg.maxInfotreeNodes
-        let result ←
-          runFrontendForTrees doc cfg.verbose cfg.errorLimit cfg.memDebug (some emitTree)
-        let truncated ← truncatedRef.get
-        let count ← countRef.get
-        handle.putStr "]"
-        handle.putStr ",\"truncated\":"
-        handle.putStr (Json.compress (toJson truncated))
-        handle.putStr ",\"truncated_at\":"
-        handle.putStr (toString count)
-        handle.putStr "}"
-        handle.flush
-        pure (result, true)
+  let metricsRef? ←
+    if cfg.stringMetrics then
+      some <$> IO.mkRef ({} : StringMetrics)
     else
-      do
-        let result ←
-          runFrontendForTrees doc cfg.verbose cfg.errorLimit cfg.memDebug none
-        let payload := Json.mkObj [("metrics", result.1.toMetricsJson)]
-        IO.FS.writeFile jsonPath (Json.compress payload)
-        pure (result, true)
+      pure none
+  let logEvery := 1000
+  let lastLoggedRef ← IO.mkRef 0
+  let countRef ← IO.mkRef 0
+  let heartbeatRef? ←
+    if let some csvPath := cfg.stringMetricsCsv then
+      if let some metricsRef := metricsRef? then
+        let metrics ← metricsRef.get
+        writeStringMetricsCsv csvPath relativePath metrics "start" 0
+        some <$> startMetricsHeartbeat csvPath relativePath metricsRef countRef
+      else
+        pure none
+    else
+      pure none
+  let resultAndWrote ←
+    IO.FS.withFile jsonPath .write fun handle => do
+      handle.putStr "{\"infotrees\":["
+      let firstRef ← IO.mkRef true
+      let truncatedRef ← IO.mkRef false
+      let emitTree := fun tree => do
+        let truncated ← truncatedRef.get
+        if truncated then
+          return ()
+        let first ← firstRef.get
+        if first then
+          firstRef.set false
+        else
+          handle.putStr ","
+        writeInfoTreeJsonLimited handle tree countRef truncatedRef cfg.maxInfotreeNodes cfg.maxExpectedExprNodes metricsRef?
+        if let some csvPath := cfg.stringMetricsCsv then
+          if let some metricsRef := metricsRef? then
+            let count ← countRef.get
+            let lastLogged ← lastLoggedRef.get
+            if count == 1 || count - lastLogged >= logEvery then
+              let metrics ← metricsRef.get
+              writeStringMetricsCsv csvPath relativePath metrics "progress" count
+              lastLoggedRef.set count
+      let result ←
+        runFrontendForTrees doc cfg.verbose cfg.errorLimit cfg.memDebug (some emitTree)
+      let truncated ← truncatedRef.get
+      let count ← countRef.get
+      handle.putStr "]"
+      handle.putStr ",\"truncated\":"
+      handle.putStr (Json.compress (toJson truncated))
+      handle.putStr ",\"truncated_at\":"
+      handle.putStr (toString count)
+      handle.putStr "}"
+      handle.flush
+      pure (result, true)
   let (result, wroteOutput) := resultAndWrote
-  let (_counts, errorCount, errors) := result
+  let (errorCount, errors) := result
+  if let some heartbeatRef := heartbeatRef? then
+    heartbeatRef.set false
+  if let some metricsRef := metricsRef? then
+    let metrics ← metricsRef.get
+    IO.eprintln s!"[infotree_export] string-metrics {relativePath} expr_bytes={metrics.exprBytes} expr_max={metrics.exprMax} expr_count={metrics.exprCount} expected_bytes={metrics.expectedBytes} expected_max={metrics.expectedMax} expected_count={metrics.expectedCount} expected_skipped={metrics.expectedSkipped} expected_skipped_max={metrics.expectedSkippedMax} doc_bytes={metrics.docBytes} doc_max={metrics.docMax} doc_count={metrics.docCount}"
+    if let some csvPath := cfg.stringMetricsCsv then
+      let count ← countRef.get
+      writeStringMetricsCsv csvPath relativePath metrics "done" count
 
   if errorCount > 0 then
     IO.eprintln s!"[infotree_export] errors while processing {relativePath}"
@@ -1057,14 +1107,6 @@ def runSingleFileWithTimeout (cfg : Config) (file : System.FilePath) (maxSeconds
         waitLoop rest
   waitLoop totalTicks
 
-def maybeCollectAfterFile (cfg : Config) : IO Unit := do
-  if let some thresholdMb := cfg.maxRssMb then
-    if let some rssKb ← readRssKb then
-      let rssMb := rssKb / 1024
-      if rssMb >= thresholdMb then
-        forceGC
-        resetSetupCache
-
 unsafe def main (args : List String) : IO Unit := do
   let cfg ← parseArgs args
   IO.Process.setCurrentDir cfg.rootDir
@@ -1078,14 +1120,12 @@ unsafe def main (args : List String) : IO Unit := do
       let ok ← runSingleFileWithTimeout cfg file maxSeconds
       if !ok then
         IO.eprintln s!"[infotree_export] timeout after {maxSeconds}s: {file}"
-      maybeCollectAfterFile cfg
       if cfg.memDebug then
         let relativePath ← relativeToRoot cfg.rootDir file
         logMemDebug s!"after_gc {relativePath}"
     else
       Lean.withImporting do
         exportFile cfg file 0 1
-      maybeCollectAfterFile cfg
       if cfg.memDebug then
         let relativePath ← relativeToRoot cfg.rootDir file
         logMemDebug s!"after_gc {relativePath}"
@@ -1099,66 +1139,18 @@ unsafe def main (args : List String) : IO Unit := do
     | none => files.size
   let slice := files.extract cfg.start endIdx
   if cfg.verbose then
-    IO.println s!"Exporting infotree metrics for {slice.size} files..."
+    IO.println s!"Exporting infotrees for {slice.size} files..."
   for h : i in [0:slice.size] do
-    if let some maxRssMb := cfg.maxRssMb then
-      if let some rssKb ← readRssKb then
-        let rssMb := rssKb / 1024
-        if rssMb >= maxRssMb then
-          let nextStart := cfg.start + i
-          let remaining :=
-            match cfg.limit with
-            | some lim => some (lim - i)
-            | none => none
-          IO.eprintln s!"[infotree_export] restarting after rss {rssMb}MB"
-          let exeDir ← IO.appDir
-          let exePath := exeDir / "infotree_export"
-          let child ← IO.Process.spawn {
-            cmd := exePath.toString
-            args := (buildContinuationArgs cfg nextStart remaining)
-            cwd := some cfg.rootDir
-            stdout := .inherit
-            stderr := .inherit
-          }
-          let _ ← child.wait
-          return ()
     if let some maxSeconds := cfg.maxSeconds then
       let ok ← runSingleFileWithTimeout cfg (slice[i]) maxSeconds
       if !ok then
         IO.eprintln s!"[infotree_export] timeout after {maxSeconds}s: {slice[i]}"
-      maybeCollectAfterFile cfg
       if cfg.memDebug then
         let relativePath ← relativeToRoot cfg.rootDir (slice[i])
         logMemDebug s!"after_gc {relativePath}"
     else
       Lean.withImporting do
         exportFile cfg (slice[i]) i slice.size
-      maybeCollectAfterFile cfg
       if cfg.memDebug then
         let relativePath ← relativeToRoot cfg.rootDir (slice[i])
         logMemDebug s!"after_gc {relativePath}"
-    if let some maxRssMb := cfg.maxRssMb then
-      if let some rssKb ← readRssKb then
-        let rssMb := rssKb / 1024
-        if rssMb >= maxRssMb && i + 1 < slice.size then
-          IO.eprintln s!"[infotree_export] restarting after rss {rssMb}MB"
-          let nextStart := cfg.start + i + 1
-          let remaining :=
-            match cfg.limit with
-            | some lim =>
-                if lim <= i + 1 then
-                  some 0
-                else
-                  some (lim - (i + 1))
-            | none => none
-          let exeDir ← IO.appDir
-          let exePath := exeDir / "infotree_export"
-          let child ← IO.Process.spawn {
-            cmd := exePath.toString
-            args := (buildContinuationArgs cfg nextStart remaining)
-            cwd := some cfg.rootDir
-            stdout := .inherit
-            stderr := .inherit
-          }
-          let _ ← child.wait
-          return ()

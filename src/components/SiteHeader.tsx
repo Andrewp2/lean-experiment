@@ -8,13 +8,13 @@ const navItems = [
   { href: '/tactics.html', label: 'Tactic reference' },
   { href: '/visualizer.html', label: 'Proof visualizer' },
   { href: '/mathlib.html', label: 'Mathlib treemap' },
+  { href: '/mathlib-city.html', label: 'Mathlib city' },
 ]
 
 export const SiteHeader = ({ mode, onModeChange }: SiteHeaderProps) => (
   <header className="site-header">
     <div className="wordmark">
       <span className="wordmark-title">LEAN LAB</span>
-      <span className="wordmark-sub">PROOF WALKTHROUGH SYSTEM</span>
     </div>
     <nav className="site-nav">
       {navItems.map((item) => (

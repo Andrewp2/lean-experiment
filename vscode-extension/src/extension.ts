@@ -325,7 +325,7 @@ const rewriteWebviewHtml = (
   const withCsp = html.replace(
     '<head>',
     `<head>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline'; worker-src ${webview.cspSource} blob:; font-src ${webview.cspSource};">`,
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline'; worker-src ${webview.cspSource} blob:; connect-src ${webview.cspSource}; font-src ${webview.cspSource};">`,
   )
   return withCsp.replace(/(href|src)=\"(.+?)\"/g, (match, attr, value) => {
     if (!value.startsWith('./')) {

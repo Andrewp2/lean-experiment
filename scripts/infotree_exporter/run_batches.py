@@ -53,12 +53,13 @@ def main():
     parser.add_argument("--batch-size", type=int, default=5)
     parser.add_argument("--max-seconds", type=int)
     parser.add_argument("--rss-log-mb", type=int)
-    parser.add_argument("--max-rss-mb", type=int)
     parser.add_argument("--mem-debug", action="store_true")
     parser.add_argument("--continue", dest="continue_flag", action="store_true")
-    parser.add_argument("--full-infotree", action="store_true")
     parser.add_argument("--gzip", action="store_true")
     parser.add_argument("--skip-on-error", action="store_true")
+    parser.add_argument("--string-metrics", action="store_true")
+    parser.add_argument("--string-metrics-csv")
+    parser.add_argument("--max-expected-expr-nodes", type=int)
     parser.add_argument("--max-infotree-nodes", type=int)
     parser.add_argument("--log-file")
     parser.add_argument("--memory-max", default="16G")
@@ -160,20 +161,22 @@ def main():
             cmd += ["--max-seconds", str(args.max_seconds)]
         if args.rss_log_mb is not None:
             cmd += ["--rss-log-mb", str(args.rss_log_mb)]
-        if args.max_rss_mb is not None:
-            cmd += ["--max-rss-mb", str(args.max_rss_mb)]
         if args.mem_debug:
             cmd.append("--mem-debug")
         if args.continue_flag:
             cmd.append("--continue")
-        if args.full_infotree:
-            cmd.append("--full-infotree")
         if args.gzip:
             cmd.append("--gzip")
         if args.max_infotree_nodes is not None:
             cmd += ["--max-infotree-nodes", str(args.max_infotree_nodes)]
         if args.skip_on_error:
             cmd.append("--skip-on-error")
+        if args.string_metrics:
+            cmd.append("--string-metrics")
+        if args.string_metrics_csv:
+            cmd += ["--string-metrics-csv", args.string_metrics_csv]
+        if args.max_expected_expr_nodes is not None:
+            cmd += ["--max-expected-expr-nodes", str(args.max_expected_expr_nodes)]
         log(f"[infotree_export] batch start {batch_start}..{batch_start + limit}")
         log(f"[infotree_export] batch cmd: {' '.join(cmd)}")
         exit_code = run_and_tee(cmd, script_dir, args.log_file)

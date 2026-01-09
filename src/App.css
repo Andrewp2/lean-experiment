@@ -4,20 +4,19 @@
   padding: 12px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 16px;
   min-height: 100vh;
   background: var(--bg);
   color: var(--ink);
 }
 
 .site-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
   gap: 24px;
   border-bottom: 1px solid var(--border-strong);
   padding-bottom: 16px;
-  flex-wrap: wrap;
 }
 
 .wordmark {
@@ -44,6 +43,7 @@
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
+  justify-self: center;
 }
 
 .site-nav a {
@@ -51,9 +51,9 @@
 }
 
 .theme-toggle {
-  margin-left: auto;
   display: flex;
   gap: 6px;
+  justify-self: end;
 }
 
 .ghost-button.active {
@@ -276,6 +276,182 @@
 
 .theme-reticle .callout {
   background: #111111;
+}
+
+.city-page {
+  min-height: 100vh;
+}
+
+.city-canvas {
+  width: 100%;
+  height: min(80vh, 900px);
+  border-radius: 16px;
+  overflow: hidden;
+  background: radial-gradient(circle at 20% 20%, #1d2330 0%, #0c0f16 55%, #07090f 100%);
+  position: relative;
+}
+
+.city-fullscreen .site-header,
+.city-fullscreen .intro,
+.city-fullscreen .panel-header {
+  display: none;
+}
+
+.city-fullscreen .panel {
+  border: none;
+  padding: 0;
+}
+
+.city-fullscreen .city-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  z-index: 1000;
+}
+
+.city-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(6, 8, 12, 0.35);
+  backdrop-filter: blur(2px);
+  z-index: 1002;
+}
+
+.city-overlay-card {
+  background: rgba(15, 18, 26, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 18px 22px;
+  border-radius: 12px;
+  color: #f4f6fb;
+  text-align: center;
+}
+
+.city-overlay-card h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.city-overlay-card p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.city-crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 1001;
+}
+
+.city-crosshair::before,
+.city-crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.city-crosshair::before {
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  transform: translateX(-50%);
+}
+
+.city-crosshair::after {
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+.city-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1001;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.city-hud-panel {
+  position: absolute;
+  background: rgba(10, 12, 18, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  padding: 8px 8px;
+  color: #eef4ff;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  backdrop-filter: blur(6px);
+  max-width: min(600px, 120vw);
+  box-shadow: 0 10px 30px rgba(6, 10, 18, 0.35);
+}
+
+.city-hud-left {
+  left: 8px;
+  bottom: 8px;
+}
+
+.city-hud-right {
+  right: 8px;
+  top: 8px;
+  text-align: right;
+  min-width: 240px;
+}
+
+.city-hud-label {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.city-hud-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.city-hud-path {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.7);
+  word-break: break-word;
+}
+
+.city-hud-metrics {
+  font-size: 0.82rem;
+}
+
+.city-hud-muted {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.city-fullscreen-toggle {
+  display: none;
+}
+
+.city-fullscreen .city-fullscreen-toggle {
+  display: inline-flex;
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1001;
+  background: rgba(10, 12, 18, 0.65);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  backdrop-filter: blur(8px);
 }
 
 .callout-label {
@@ -699,7 +875,7 @@
   gap: 6px;
 }
 
- .treemap-readout-empty {
+.treemap-readout-empty {
   color: inherit;
 }
 
@@ -860,6 +1036,7 @@
   }
 
   .site-header {
+    display: flex;
     flex-direction: column;
     align-items: flex-start;
   }
