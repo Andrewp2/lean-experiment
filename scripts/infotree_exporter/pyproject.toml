@@ -1,0 +1,8 @@
+[project]
+name = "infotree-exporter-tools"
+version = "0.1.0"
+description = "Utilities for infotree metrics extraction."
+requires-python = ">=3.10"
+dependencies = [
+    "json-stream",
+]

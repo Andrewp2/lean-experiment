@@ -8,6 +8,10 @@ lean_exe infotree_export where
   root := `Main
   supportInterpreter := true
 
+lean_exe import_graph where
+  root := `ImportGraph
+  supportInterpreter := true
+
 target ffi.o pkg : System.FilePath := do
   let oFile := pkg.buildDir / "c" / "ffi.o"
   let srcJob ← inputTextFile <| pkg.dir / "ffi.c"
